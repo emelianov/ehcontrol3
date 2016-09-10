@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html><head><title>EHControl</title>
+<script>
+XmlData.prototype.load = function(x) {
+ var c = x.firstChild;
+ while (c) {
+  if (c.nodeName == '#text') {
+   this._text += c.nodeValue;
+  } else if (c.nodeType == 1) {
+   if (typeof this[c.nodeName] == 'undefined') this[c.nodeName] = [];
+   this[c.nodeName][this[c.nodeName].length] = new XmlData(c);
+  }
+  c = c.nextSibling;
+ }
+ var a = x.attributes;
+ var i = 0;
+ if (a) for (var i = 0; i < a.length; i ++) this[a[i].name] = a[i].value;
+ if (this._text.match(/^\\s*$/)) delete this._text;
+ return this;
+}
+function XmlData(x) {
+ this._text = '';
+ return this.load(x);
+}
+var sid=0;
+var getAct=false;
+//var state, conf;
+function getIO(s){
+s=s||'';
+//if(s != '') s=s+'&sid='+sdbm(document.getElementById('pin').value+sid)+'&';
+if(!getAct){
+ getAct=true;
+ nocache='nocache='+Math.random()*1000000;
+ var request=new XMLHttpRequest();
+ request.onreadystatechange = function(){
+  if(this.readyState==4 && this.status==200){
+   var resp=this.responseXML;
+   if(resp!=null){
+    var data = new XmlData(resp);
+    var state = data.ctrl[0].state[0];
+    var conf = data.ctrl[0].config[0];
+    var env = data.ctrl[0].env[0];
+    document.title = env.name[0]._text;
+    var table = document.createElement('table');
+    table.className = 'box';
+    for (var i=0; i<state.sensor.length; i++) {
+     var tr = document.createElement('tr');
+     if (!(i&1)) tr.className='odd';
+     var td = [];
+     for (var j=0;j<9;j++) {
+      td[j] = document.createElement('td');
+      tr.appendChild(td[j]);
+     }
+     td[0].innerHTML = state.sensor[i].name[0]._text;
+     td[0].className = 'left';
+     td[1].innerHTML = state.sensor[i].t[0]._text + '&deg';
+     if (i<4) {
+      if (i > 0 && i < 4) {
+       td[2].innerHTML = '-';
+       td[2].className = 'htune';
+       td[4].innerHTML = '+';
+       td[4].className = 'htune';
+
+//       td[5].innerHTML = '&nbsp;';
+       td[6].innerHTML = clk(state.relay[i].ront[0]._text) + ' - ' + clk(state.relay[i].rofft[0]._text);
+       td[6].className = (state.relay[i].rnowt[0]._text == 1)?'t2':'t1';
+      }
+      td[3].innerHTML = state.relay[i].rhi[0]._text + '&deg';
+//      td[7].innerHTML = '&nbsp;';
+      td[8].innerHTML = (state.relay[i].r[0]._text == 1)?'ON':'OFF';;
+      td[8].className = (state.relay[i].r[0]._text == 1)?'on':'off';
+     }
+     if (state.sensor[i].t[0]._text != -127 || i < 4) {
+     	table.appendChild(tr);
+     }
+    }
+    document.getElementById('tm').innerHTML=clk(env.time[0]._text/60);
+	var box = document.getElementById('box');
+    while (box.hasChildNodes()) box.removeChild(box.lastChild);
+    box.appendChild(table);
+  }}}
+// request.open('GET','/state?'+s+nocache,true);
+ request.open('GET','/state', true);
+ request.send(null);
+ getAct=false;
+}
+if(s=='') setTimeout('getIO("")', 10000);
+}
+function clk(m){
+ var ch=Math.floor(m/60);
+ var cm=Math.floor(m-ch*60);
+ return ((ch<10)?'0':'')+ch+':'+((cm<10)?'0':'')+cm;
+}
+function sdbm(str){
+ var hash = 0;
+ for(i = 0; i < str.length; i++) {
+  char = str.charCodeAt(i);
+  hash = char + (hash << 6) + (hash << 16) - hash;
+ }
+ return hash;
+}
+</script>
+<style>
+.box{float:top; width:400px; border-spacing:0px 1px; margin:0 0px 0px 0;border-top:1px solid #EEE;padding: 0 0px 0 0px;text-align:center;}
+.bold{font-size:200%;color:black;font-weight:bold;}
+.hcell{color:black;margin:0;border-left:1px solid #EEE;}
+.htune{color:white;background-color:#777;font-weight: bold;text-align:center;border:1px solid black;width:20px;cursor:pointer;}
+p, form,button{font-size:100%;color:#252525;}
+.small_text{font-size:90%;color:#737373;}
+.odd{background-color:#F0F0F0;}
+.center{text-align:center;}
+.left{text-align:left;}
+.on{background-color:black;color:white;text-align:center;padding:2px;}
+.off{border:1px solid black;text-align:center;padding:2px;cursor:pointer;}
+.t1{font-size:75%;border:1px solid black;text-align:center;padding:2px;}
+.t2{font-size:75%;background-color:black;color:white;text-align:center;padding:2px;}
+</style>
+</head>
+<body onload='getIO("")';><form>
+<table class="box">
+<tr><td rowspan=2 class="bold" id="tm">..</td><td class="hcell">Eco mode</td><td class="off">ON</td><td class="on">OFF</td></tr>
+<tr><td class="hcell">Alarm</td><td>&nbsp;</td><td class="off">OFF</td></tr>
+</table>
+<div id="box">
+</div>
+</form></body>
+</html>

@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+<script>
+function getFileFromServer(url, doneCallback) {
+    var xhr;
+
+    xhr = new XMLHttpRequest();
+    xhr.onreadystatechange = handleStateChange;
+    xhr.open("GET", url, true);
+    xhr.send();
+
+    function handleStateChange() {
+        if (xhr.readyState === 4) {
+            doneCallback(xhr.status == 200 ? xhr.responseText : null);
+        }
+    }
+}
+function onLoad() {
+ getFileFromServer("/ctrl.config", function(text) {
+    if (text === null) {
+        // An error occurred
+    }
+    else {
+        document.getElementById("text").value = text;
+    }
+});
+ return true;
+}
+</script>
+</head>
+<body onLoad='return onLoad();'>
+<form method='POST' action='/edit' enctype='multipart/form-data'>
+ <textarea id='text'>
+ <input type='file' name='upload'>
+ <input type='submit' value='Update'>
+</form>
+</body>
+</html>

@@ -1,0 +1,16 @@
+<sensors>
+<sensor><id>28FF7F306914049F</id><gid>1001</gid><name>Burner Out</name></sensor>
+<sensor><id>28FF6BEB71150341</id><gid>1002</gid><name>Zone 1</name></sensor>
+<sensor><id>28FF6BEB71150341</id><gid>1003</gid><name>Zone 2 (Dup)</name></sensor>
+<sensor><id>28FF271F691404DE</id><gid>1004</gid><name>Floor Ret</name></sensor>
+<sensor><id>28FF1D0E6D14034D</id><gid>1005</gid><name>Burner Ret</name></sensor>
+<sensor><id>28FF60D371140422</id><gid>1006</gid><name>Zone 1 Ret</name></sensor>
+<sensor><id>28FF9B0D6D140392</id><gid>1007</gid><name>Zone 2 Ret</name></sensor>
+<sensor><id>0000000000000000</id><gid>0</gid><name>9</name></sensor>
+<sensor><id>0000000000000000</id><gid>0</gid><name>10</name></sensor>
+<sensor><id>0000000000000000</id><gid>0</gid><name>11</name></sensor>
+<sensor><id>0000000000000000</id><gid>0</gid><name>12</name></sensor>
+<sensor><id>0000000000000000</id><gid>0</gid><name>13</name></sensor>
+<sensor><id>0000000000000000</id><gid>0</gid><name>14</name></sensor>
+<sensor><id>0000000000000000</id><gid>0</gid><name>15</name></sensor>
+</sensors>
