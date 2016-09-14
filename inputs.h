@@ -50,36 +50,45 @@ struct aio {
 gpio inputs[INPUTS_COUNT];
 aio analogs[ANALOG_COUNT];
 extern TinyXML xml;
-
-void NIempty() {
+void defaultInput(uint8_t i) {
+    inputs[i].name        = "Default";
+    inputs[i].onClick     = NULL;
+    inputs[i].onLongClick = NULL;
+    inputs[i].onOff       = NULL;
+    inputs[i].onOn        = NULL;
+    inputs[i].pin         = SYSTEM_PIN;
+    inputs[i].age         = DEVICE_AGE_DEF;
+    inputs[i].gid         = 0;
+    inputs[i].old         = false;
+    inputs[i].on          = false;
 }
-
 bool readInputs() {
   int16_t i;
 
   for (i = 0; i < INPUTS_COUNT; i++) {
     inputs[i].name = "";
-    inputs[i].onClick = NULL;
+    inputs[i].onClick     = NULL;
     inputs[i].onLongClick = NULL;
-    inputs[i].onOff = NULL;
-    inputs[i].onOn = NULL;
-    inputs[i].pin = -1;
-    inputs[i].age = DEVICE_AGE_DEF;
-    inputs[i].gid = 0;
-    inputs[i].old = false;
+    inputs[i].onOff       = NULL;
+    inputs[i].onOn        = NULL;
+    inputs[i].pin         = -1;
+    inputs[i].age         = DEVICE_AGE_DEF;
+    inputs[i].gid         = 0;
+    inputs[i].old         = false;
+    inputs[i].on          = false;
   };
   for (i = 0; i < ANALOG_COUNT; i++) {
-    analogs[i].name = "";
-    analogs[i].value = 0;
-    analogs[i].pin = -1;
-    analogs[i].gid = 0;
-    analogs[i].age = DEVICE_AGE_DEF;
-    analogs[i].old = 0;
-    analogs[i].highMark = 0;
-    analogs[i].lowMark = 0;
-    analogs[i].onLower = NULL;
-    analogs[i].onWithin = NULL;
-    analogs[i].onHigher = NULL;
+    analogs[i].name       = "";
+    analogs[i].value      = 0;
+    analogs[i].pin        = -1;
+    analogs[i].gid        = 0;
+    analogs[i].age        = DEVICE_AGE_DEF;
+    analogs[i].old        = 0;
+    analogs[i].highMark   = 0;
+    analogs[i].lowMark    = 0;
+    analogs[i].onLower    = NULL;
+    analogs[i].onWithin   = NULL;
+    analogs[i].onHigher   = NULL;
   }
 
   File configFile = SPIFFS.open(CFG_INPUTS, "r");

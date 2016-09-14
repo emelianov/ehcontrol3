@@ -157,12 +157,12 @@ bool readPartner(String address) {
   return false;
 }
 
-extern String partners[];
+extern String pull[];
 uint32_t queryPartners() {
   if (WiFi.status() == WL_CONNECTED) {
-    if (currentPartner < PARTNER_MAX_COUNT && partners[currentPartner] != "") {
+    if (currentPartner < PARTNER_MAX_COUNT && pull[currentPartner] != "") {
       BUSY
-      pullPartner(partners[currentPartner]);
+      pullPartner(pull[currentPartner]);
       currentPartner++;
       IDLE
       return PARTNER_NEXT;

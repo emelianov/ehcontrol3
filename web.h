@@ -4,9 +4,6 @@
 
 #pragma once
 #include <ESP8266WebServer.h>
-//#include <FS.h>
-//#include <Run.h>
-//#include "_options.h"
 
 #define DBG_OUTPUT_PORT Serial
 
@@ -266,6 +263,17 @@ void handleState() {
         relays[i].onT2, relays[i].offT2, relays[i].isT2);
 		result += buf;
     }
+
+    for (i = 0; i < INPUTS_COUNT; i++) {
+      sprintf_P(buf, PSTR("<input><on>%d</on><gid>%d</gid></input>\n"), inputs[i].on, inputs[i].gid);
+      result += buf;
+    }
+  
+    for (i = 0; i < ANALOG_COUNT; i++) {
+      sprintf_P(buf, PSTR("<analog><v>%d</v><gid>%d</gid></analog>\n"), analogs[i].value, analogs[i].gid);
+      result += buf;
+    }
+
 IPAddress ip = WiFi.localIP();
 IPAddress mask = WiFi.subnetMask();
 IPAddress gw = WiFi.gatewayIP();    
@@ -276,7 +284,9 @@ IPAddress gw = WiFi.gatewayIP();
 <gw>%d.%d.%d.%d</gw>\n\
 <ns>%d.%d.%d.%d</ns>\n\
 <log>%d.%d.%d.%d</log>\n\
-<ntp>%d.%d.%d.%d</ntp>\n\
+<ntp>%s</ntp>\n\
+<ntp>%s</ntp>\n\
+<ntp>%s</ntp>\n\
 <tz>%d</tz>\n\
 </config>\n\
 <env>\n\
@@ -292,13 +302,9 @@ IPAddress gw = WiFi.gatewayIP();
   gw[0],gw[1],gw[2],gw[3],
   gw[0],gw[1],gw[2],gw[3],
   sysLogServer[0],sysLogServer[1],sysLogServer[2],sysLogServer[3],
-  timeServer[0],timeServer[1],timeServer[2],timeServer[3],
+  timeServer[0].c_str(),timeServer[1].c_str(),timeServer[2].c_str(),
   timeZone,
-#ifdef ESP8266
   time(NULL) % 86400UL,
-#else
-  (uint32_t)currentTime % 86400UL,
-#endif
   (uint32_t)millis()/1000, ecoMode, name.c_str());
     result += buf;
     
@@ -307,15 +313,33 @@ IPAddress gw = WiFi.gatewayIP();
 }
 void handleReboot() {
   if(!server.authenticate(adminUsername.c_str(), adminPassword.c_str())) {
-    IDLE
     return server.requestAuthentication();
   }
+  BUSY
   WiFiUDP::stopAll();
   for (uint8_t i = 0; i < RELAY_COUNT; i++) {
       if (relays[i].pin != -1) { _off(i);}
   }
 	ESP.restart();
 }
+#define WEB_CONFIRM_TIME  15000
+bool allowFormat = false;
+uint32_t disallowFormat() {
+  allowFormat = false;
+  return 0;
+}
+void handleFormat() {
+  if(!server.authenticate(adminUsername.c_str(), adminPassword.c_str())) {
+    return server.requestAuthentication();
+  }
+  if (!allowFormat) {
+    allowFormat = true;
+    taskAddWithDelay(disallowFormat, WEB_CONFIRM_TIME);
+    server.send_P(200, "text/html", PSTR("<html><head><script>if (confirm('Procced with FORMAT and DESTROY ALL DATA on internal file system ?')) document.location('/format');</script></head></html>"));
+  }
+  server.send_P(200, "text/html", PSTR("<html><body>Format</body></html>"));
+}
+
 uint32_t initWeb() {
 //First callback is called after the request has ended with all parsed arguments
 //Second callback handles file uploads at that location
@@ -331,9 +355,11 @@ uint32_t initWeb() {
   server.onNotFound(handleGenericFile);                             //Load file from FS
   server.on("/state", HTTP_GET, handleState);                     //Get sensors, relays, etc  state
   server.on("/short", HTTP_GET, handleShortState);                 //Get sensors, relays, etc  state
+  server.on("/pull", HTTP_GET, handleShortState);                 //Get sensors, relays, etc  state
   server.on("/all", HTTP_GET, handlePrivate);                       //Get internal information
   server.on("/reboot", HTTP_GET, handleReboot);
   server.on("/set", HTTP_GET, handleSet);
+  server.on("/format", HTTP_GET, handleFormat);                   //Format FileSystem
   server.on("/secure.xml", HTTP_GET, handleProtectedFile);
   return 0;
 }

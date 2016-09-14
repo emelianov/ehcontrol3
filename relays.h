@@ -3,7 +3,7 @@
 // Relays definitions, constants and routines
 
 #pragma once
-
+#include "inputs.h"
 #define RELAY_COUNT 4
 #define TGRAPH_COUNT 8
 #define CFG_RELAYS "/relays.xml"
@@ -13,6 +13,8 @@
 #define ECO 2
 #define OTHER 3
 
+#define ECO_IN 1
+extern bool ecoMode;
 struct relay {
   bool on;
   int16_t pin;
@@ -194,6 +196,12 @@ bool readRelays() {
   }
   return false;  
 }
+void ecoOn() {
+  ecoMode = true;
+}
+void ecoOff() {
+  ecoMode = false;
+}
 void initRelays() {
   readRelays();
   for (uint8_t i = 0; i < RELAY_COUNT; i++) {
@@ -204,4 +212,6 @@ void initRelays() {
     _off(i);
    }
   }
+  inputEvent(ECO_IN, ON_ON, ecoOn);
+  inputEvent(ECO_IN, ON_OFF, ecoOff);
 }

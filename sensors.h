@@ -50,10 +50,7 @@ uint32_t readTSensorsResponse() {
     float t = sensors.getTempC(sens[i].device);
     if (t !=  DEVICE_DISCONNECTED_C) {
       sens[i].tCurrent = t;
-//      sens[i].errCount = 0;
       sens[i].age = DEVICE_AGE_LOC;
-//    } else {
-//      sens[i].errCount++;
     }
    }
   }
@@ -66,6 +63,7 @@ extern String xmlTag;
 extern String xmlData;
 extern String xmlAttrib;
 extern void XML_callback(uint8_t statusflags, char* tagName, uint16_t tagNameLen, char* data, uint16_t dataLen);
+
 bool saveSensors() {
    File configFile = SPIFFS.open(CFG_SENSORS, "w");
    if (configFile) {
@@ -85,11 +83,11 @@ bool saveSensors() {
    }
    return false;  
 }
+
 bool readSensors() {
   int16_t i;
   for (i = 0; i < DEVICE_MAX_COUNT; i++) {
     sens[i].tCurrent = DEVICE_DISCONNECTED_C;
-//    sens[i].errCount = 0;
     sens[i].name = String(i);
     sens[i].gid = 0;
     sens[i].age = DEVICE_AGE_DEF;
@@ -99,15 +97,10 @@ bool readSensors() {
   bool sensorOpen = false;
   File configFile = SPIFFS.open(CFG_SENSORS, "r");
   if (configFile) {
-//   TinyXML xml;
-//   uint8_t buffer[150];
-//   xml.init((uint8_t *)buffer, sizeof(buffer), &XML_callback);
    xml.reset();
    xmlTag = "";
    xmlOpen = "";
    char c;
-   //xmlTag = "";
-   //xmlOpen = "";
    while (configFile.read((uint8_t*)&c, 1) == 1) {
     xml.processChar(c);
     if (xmlTag != "" || xmlOpen != "") {
@@ -125,7 +118,6 @@ bool readSensors() {
        } else if
       (xmlTag.endsWith("/id")) {
         for (uint8_t j = 0; j < 8; j++) {
-          //char octet = xmlData.substring(j, j+1).c_str();
           sens[i].device[j] = strtol(xmlData.substring(j*2, j*2+2).c_str(), NULL, 16);
         }
        } else if
@@ -144,6 +136,7 @@ bool readSensors() {
   }
   return false;
 }
+
 uint32_t initTSensors() {
   sensors.begin();
   sensors.setResolution(12);
