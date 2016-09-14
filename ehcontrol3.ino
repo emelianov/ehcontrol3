@@ -14,7 +14,7 @@
 #define AGER_EXPIRE   20
 #define WIFI_RETRY_DELAY 1000
 
-#define SYSTEM_PIN    D2
+#define SYSTEM_PIN    0
 #define PIN_ACT       D4  //Net LED
 #define PIN_ALERT     D0  //16
 #define BUSY          digitalWrite(PIN_ACT, 0);
@@ -123,6 +123,7 @@ uint32_t startWiFi() {
         for (i = 0; i < NTP_MAX_COUNT; i++) {
           if (timeServer[i] == "") {
             timeServer[i] = xmlData;
+            break;
           }
         }
        } else if 
@@ -241,8 +242,8 @@ uint32_t waitWiFi() {
 }
 
 #define LONGPRESS       2000
-#define LONGPRESSLEDON  5000
-#define LONGPRESSLEDOFF 2000
+#define LONGPRESSLEDON  3000
+#define LONGPRESSLEDOFF 1000
 
 //Start Open Access Point mode on button long press
 uint32_t startWiFiAP() {

@@ -335,8 +335,9 @@ void handleFormat() {
   if (!allowFormat) {
     allowFormat = true;
     taskAddWithDelay(disallowFormat, WEB_CONFIRM_TIME);
-    server.send_P(200, "text/html", PSTR("<html><head><script>if (confirm('Procced with FORMAT and DESTROY ALL DATA on internal file system ?')) document.location('/format');</script></head></html>"));
+    server.send_P(200, "text/html", PSTR("<html><head><script>if (confirm('Procced with FORMAT and DESTROY ALL DATA on internal file system ?')) window.location = '/format';</script></head></html>"));
   }
+  allowFormat = false;
   server.send_P(200, "text/html", PSTR("<html><body>Format</body></html>"));
 }
 
