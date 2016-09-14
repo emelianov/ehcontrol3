@@ -60,6 +60,12 @@ void XML_callback(uint8_t statusflags, char* tagName, uint16_t tagNameLen, char*
 }
 #define SSID_MAX_LENGTH 16
 #define PASS_MAX_LENGTH 24
+
+uint32_t startWiFiAP() {
+   WiFi.mode(WIFI_AP);
+   WiFi.begin();
+   return 0;
+}
 uint32_t startWiFi() {
   BUSY
   String ssid("");
@@ -181,11 +187,12 @@ uint32_t waitWiFi() {
      return WIFI_RETRY_DELAY;  
 }
 #define BUTTON 3
-#define LONGPRESS 1000
+#define LONGPRESS 2000
 #define LONGPRESSDURATION 30000
 
 uint32_t buttonLongPress() {
   ALERT
+  startWiFiAP();
   taskDel(buttonLongPressEnd);
   taskAddWithDelay(buttonLongPressEnd, LONGPRESSDURATION);
   return 0;
@@ -223,6 +230,7 @@ void setup(void){
   pinMode (PIN_ACT, OUTPUT);
   pinMode (D3, INPUT);
   pinMode (PIN_ALERT, OUTPUT);
+  NOALERT
   SPIFFS.begin();
   xml.init((uint8_t *)buffer, sizeof(buffer), &XML_callback);
   taskAdd(startWiFi);
