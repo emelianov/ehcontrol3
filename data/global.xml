@@ -7,7 +7,7 @@
 <dns>192.168.20.2</dns>
 <ap>0</ap>
 <ssid>EW</ssid>
-<ssidpass>iMpress6264</ssidpass>
+<ssidpass>pass</ssidpass>
 <syslog>192.168.30.30</syslog>
 <ntps>192.168.20.2</ntps>
 <timezone>5</timezone>
