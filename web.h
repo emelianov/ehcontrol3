@@ -5,13 +5,10 @@
 #pragma once
 #include <ESP8266WebServer.h>
 
-#define DBG_OUTPUT_PORT Serial
-
 extern IPAddress SysLogServer;
 
 ESP8266WebServer server(80);
 File fsUploadFile;
-
 String getContentType(String filename){
   if(server.hasArg("download")) return "application/octet-stream";
   else if(filename.endsWith(".htm")) return "text/html";
@@ -45,6 +42,9 @@ bool handleFileRead(String path){
 }
 
 void handleFileUpload(){
+  if(!server.authenticate(adminUsername.c_str(), adminPassword.c_str())) {
+    return server.requestAuthentication();
+  }
   if(server.uri() != "/edit") return;
   BUSY
   HTTPUpload& upload = server.upload();
@@ -64,6 +64,9 @@ void handleFileUpload(){
 }
 
 void handleFileDelete(){
+  if(!server.authenticate(adminUsername.c_str(), adminPassword.c_str())) {
+    return server.requestAuthentication();
+  }
   if(server.args() == 0) return server.send_P(500, "text/plain", PSTR("BAD ARGS"));
   String path = server.arg(0);
   if(path == "/")
@@ -76,10 +79,12 @@ void handleFileDelete(){
 }
 
 void handleFileCreate(){
+  if(!server.authenticate(adminUsername.c_str(), adminPassword.c_str())) {
+    return server.requestAuthentication();
+  }
   if(server.args() == 0)
     return server.send_P(500, "text/plain", PSTR("BAD ARGS"));
   String path = server.arg(0);
-  DBG_OUTPUT_PORT.println("handleFileCreate: " + path);
   if(path == "/")
     return server.send_P(500, "text/plain", PSTR("BAD PATH"));
   if(SPIFFS.exists(path))
@@ -93,39 +98,11 @@ void handleFileCreate(){
   path = String();
 }
 
-void handleFileList() {
-  BUSY
-  if(!server.hasArg("dir")) {
-	 server.send_P(500, "text/plain", PSTR("BAD ARGS"));
-	 return;
-  }
-  String path = server.arg("dir");
-  Dir dir = SPIFFS.openDir(path);
-  path = String();
-
-  String output = "[";
-  while(dir.next()){
-    File entry = dir.openFile("r");
-    if (output != "[") output += ',';
-    bool isDir = false;
-    output += "{\"type\":\"";
-    output += (isDir)?"dir":"file";
-    output += "\",\"name\":\"";
-    output += String(entry.name()).substring(1);
-    output += "\"}";
-    entry.close();
-  }
-  
-  output += "]";
-  server.send(200, "text/json", output);
-  IDLE
-}
-
 void handleSet() {
   BUSY
   if(server.hasArg("eco")) {
    ecoMode = server.arg("eco").toInt() == 1;
-   server.send(200, "text/json", "OK");
+   server.send(200, "text/html", PSTR("<html><head><meta http-equiv=\"Refresh\" content=\"5; url=/\"></head><body><b>OK</b></body></html>"));
    IDLE
    return;
   }
@@ -134,34 +111,30 @@ void handleSet() {
 }
 
 void handleRoot() {
-      BUSY
       if(!server.authenticate(adminUsername.c_str(), adminPassword.c_str())) {
-        IDLE
         return server.requestAuthentication();
       }
+      BUSY
       server.sendHeader("Connection", "close");
       server.sendHeader("Access-Control-Allow-Origin", "*");
       server.send_P(200, "text/html", PSTR("<form method='POST' action='/update' enctype='multipart/form-data'><input type='file' name='update'><input type='submit' value='Update'></form>"));
       IDLE
 }
 void handleUpdate() {
-      BUSY
       if(!server.authenticate(adminUsername.c_str(), adminPassword.c_str())) {
-        IDLE
         return server.requestAuthentication();
       }
+      BUSY
       server.sendHeader("Connection", "close");
       server.sendHeader("Access-Control-Allow-Origin", "*");
       server.send(200, "text/plain", (Update.hasError())?"FAIL":"OK");
       ESP.restart();
-      IDLE
 }
 void handleProtectedFile() {
-  BUSY
   if(!server.authenticate(adminUsername.c_str(), adminPassword.c_str())) {
-	IDLE
-	return server.requestAuthentication();
+	  return server.requestAuthentication();
   }
+  BUSY
   if(!handleFileRead(server.uri()))
     server.send_P(404, "text/plain", PSTR("FileNotFound"));
   IDLE
@@ -199,9 +172,11 @@ void handleGenericFile() {
   IDLE
 }
 void handlePrivate() {
-    char data[400];
-    sprintf_P(data, PSTR("<?xml version = \"1.0\" ?><ctrl><private><heap>%d</heap><rssi>%d</rssi><a0>%d</a0><revision>%s</revision></private></ctrl>"), ESP.getFreeHeap(), WiFi.RSSI(), analogRead(A0), REVISION);
-    server.send(200, "text/xml", data);
+  BUSY
+  char data[400];
+  sprintf_P(data, PSTR("<?xml version = \"1.0\" ?><ctrl><private><heap>%d</heap><rssi>%d</rssi><a0>%d</a0><revision>%s</revision></private></ctrl>"), ESP.getFreeHeap(), WiFi.RSSI(), analogRead(A0), REVISION);
+  server.send(200, "text/xml", data);
+  IDLE
 }
 void handleShortState() {
   BUSY
@@ -311,34 +286,133 @@ IPAddress gw = WiFi.gatewayIP();
     server.send(200, "text/xml", result);
     IDLE
 }
+
+#define WEB_CONFIRM_TIME  15000
+bool allowFormat = false;
+bool allowReboot = false;
+uint32_t disallowFormatAndReboot() {
+  allowFormat = false;
+  allowReboot = false;
+  return 0;
+}
 void handleReboot() {
   if(!server.authenticate(adminUsername.c_str(), adminPassword.c_str())) {
     return server.requestAuthentication();
   }
   BUSY
+  if (!allowReboot) {
+    allowReboot = true;
+    taskAddWithDelay(disallowFormatAndReboot, WEB_CONFIRM_TIME);
+    server.send_P(200, PSTR("text/html"), PSTR("<html><head><script>if (confirm('Procced with system reboot?')) window.location = '/reboot';</script></head></html>"));
+    IDLE
+  }
   WiFiUDP::stopAll();
   for (uint8_t i = 0; i < RELAY_COUNT; i++) {
       if (relays[i].pin != -1) { _off(i);}
   }
+  server.send_P(200, PSTR("text/html"), PSTR("<html><head><meta http-equiv=\"Refresh\" content=\"10; url=/\"></head><body>OK</body></html>"));
 	ESP.restart();
-}
-#define WEB_CONFIRM_TIME  15000
-bool allowFormat = false;
-uint32_t disallowFormat() {
-  allowFormat = false;
-  return 0;
 }
 void handleFormat() {
   if(!server.authenticate(adminUsername.c_str(), adminPassword.c_str())) {
     return server.requestAuthentication();
   }
+  BUSY
   if (!allowFormat) {
     allowFormat = true;
-    taskAddWithDelay(disallowFormat, WEB_CONFIRM_TIME);
-    server.send_P(200, "text/html", PSTR("<html><head><script>if (confirm('Procced with FORMAT and DESTROY ALL DATA on internal file system ?')) window.location = '/format';</script></head></html>"));
+    taskAddWithDelay(disallowFormatAndReboot, WEB_CONFIRM_TIME);
+    server.send_P(200, PSTR("text/html"), PSTR("<html><head><script>if (confirm('Procced with FORMAT and DESTROY ALL DATA on internal file system ?')) window.location = '/format';</script></head></html>"));
+    IDLE
   }
   allowFormat = false;
-  server.send_P(200, "text/html", PSTR("<html><body>Format</body></html>"));
+  server.send_P(200, PSTR("text/html"), PSTR("<html><head><meta http-equiv=\"Refresh\" content=\"5; url=/config\"></head><body>OK</body></html>"));
+  IDLE
+}
+
+void handleConfig() {
+  if(!server.authenticate(adminUsername.c_str(), adminPassword.c_str())) {
+    return server.requestAuthentication();
+  }
+  BUSY
+  String path = server.hasArg("dir")?server.arg("dir"):"/";
+  Dir dir = SPIFFS.openDir(path);
+  String output = F("<html><head><meta charset='utf-8'><title>ehcontrol3</title>\
+<script>\
+var filename = '/global.xml';\
+function getFileFromServer(url, doneCallback) {\
+    var xhr;\
+    xhr = new XMLHttpRequest();\
+    xhr.onreadystatechange = handleStateChange;\
+    xhr.open('GET', url, true);\
+    xhr.send();\
+    function handleStateChange() {\
+        if (xhr.readyState === 4) {\
+            doneCallback(xhr.status == 200 ? xhr.responseText : null);\
+        }\
+    }\
+}\
+function sendFileToServer(url, fname, dataCallback) {\
+  var boundaryString = '---------------------------132611019532525';\
+      var boundary = '--' + boundaryString;\
+      var requestbody = \
+              boundary + '\\r\\n'\
+            + 'Content-Disposition: form-data; name=\"update\"; filename=\"' + fname + '\"\\r\\n'\
+            + 'Content-Type: text/xml\\r\\n\\r\\n'\
+            + dataCallback() + '\\r\\n'\
+      + boundary + '--\\r\\n';\
+  var xhr = new XMLHttpRequest();\
+  xhr.open('POST', url, true);\
+        xhr.setRequestHeader('Content-type', 'multipart/form-data; boundary=' + boundaryString);\
+      xhr.setRequestHeader('Connection', 'close');\
+      xhr.setRequestHeader('Content-length', requestbody.length);\
+  xhr.onreadystatechange = handleStateChange;\
+  xhr.send(requestbody);\
+  function handleStateChange() {\
+    if (this.readyState != 4) return;\
+      alert( this.responseText );\
+  }\
+}\
+</script>\
+</head><body><h1>Configuration</h1><br>\
+<table width=100% border=0px><tr><td valign='top'>\
+<form method='POST' action='/edit' enctype='multipart/form-data'>\
+ Upload file to local filesystem:<br>\
+ <input type='file' name='update'>\
+ <input type='submit' value='Upload file'>\
+</form>\
+FileSystem contents:<br>");
+  while(dir.next()){
+    File entry = dir.openFile("r");
+    String filename = String(entry.name());
+    output += F("<a href='");
+    output += filename;
+    output += F("'>");
+    output += filename.substring(1);
+    output += F("</a>&nbsp;<a href='' onClick='filename=\"");
+    output += filename;
+    output += F("\";getFileFromServer(filename, function(text) { if (text != null) document.getElementById(\"text\").value = text; });return false;'>Edit</a><br>");
+    entry.close();
+  }
+  output += F("<br><form method='POST' action='/update' enctype='multipart/form-data'>\
+ Update firmware:<br>\
+ <input type='file' name='update'>\
+ <input type='submit' value='Update firmware'>\
+ <br><br>\
+ <input type='button' value='Format FileSystem' onClick='window.location=\"/format\";'>\
+ &nbsp;\
+ <input type='button' value='Reboot device' onClick='window.location=\"/reboot\";'>\
+</form>\
+</td><td>\
+<form method='POST' action='/edit' enctype='multipart/form-data' onSubmit='return false;'>\
+ <textarea id='text' cols=80 rows=40></textarea>\
+ <br>\
+ <input type='button' value='Save file' onClick='sendFileToServer(\"/edit\", filename, function() {return document.getElementById(\"text\").value;});'>\
+</form>\
+</td></tr></body></html>");
+  server.sendHeader("Connection", "close");
+  server.sendHeader("Access-Control-Allow-Origin", "*");
+  server.send(200, "text/html", output);
+  IDLE
 }
 
 uint32_t initWeb() {
@@ -346,22 +420,22 @@ uint32_t initWeb() {
 //Second callback handles file uploads at that location
   server.on("/update", HTTP_GET, handleRoot);                       //Update
   server.on("/update", HTTP_POST, handleUpdate, handleUpdateUpload);//Update firmware
-  server.on("/list", HTTP_GET, handleFileList);                     //List directory
   server.on("/edit", HTTP_GET, [](){
     if(!handleFileRead("/edit.html")) server.send_P(404, "text/plain", PSTR("FileNotFound"));
   });
-  server.on("/edit", HTTP_PUT, handleFileCreate);                   //Create file
-  server.on("/edit", HTTP_DELETE, handleFileDelete);                //Delete file
+  server.on("/edit", HTTP_PUT, handleFileCreate);                 //Create file
+  server.on("/edit", HTTP_DELETE, handleFileDelete);              //Delete file
   server.on("/edit", HTTP_POST, [](){ server.send(200, "text/plain", ""); }, handleFileUpload); //Upload file
-  server.onNotFound(handleGenericFile);                             //Load file from FS
+  server.onNotFound(handleGenericFile);                           //Load file from FS
   server.on("/state", HTTP_GET, handleState);                     //Get sensors, relays, etc  state
-  server.on("/short", HTTP_GET, handleShortState);                 //Get sensors, relays, etc  state
+  server.on("/short", HTTP_GET, handleShortState);                //Get sensors, relays, etc  state
   server.on("/pull", HTTP_GET, handleShortState);                 //Get sensors, relays, etc  state
-  server.on("/all", HTTP_GET, handlePrivate);                       //Get internal information
-  server.on("/reboot", HTTP_GET, handleReboot);
-  server.on("/set", HTTP_GET, handleSet);
+  server.on("/all", HTTP_GET, handlePrivate);                     //Get internal information
+  server.on("/reboot", HTTP_GET, handleReboot);                   //Reboot device
+  server.on("/set", HTTP_GET, handleSet);                         //Set internal variable
   server.on("/format", HTTP_GET, handleFormat);                   //Format FileSystem
-  server.on("/secure.xml", HTTP_GET, handleProtectedFile);
+  server.on("/config", HTTP_GET, handleConfig);                   //System configuration
+  server.on("/secure.xml", HTTP_GET, handleProtectedFile);        //Load restricted secure.xml from FS
   return 0;
 }
 uint32_t handleWeb() {

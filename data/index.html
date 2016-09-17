@@ -73,8 +73,10 @@ if(!getAct){
      	table.appendChild(tr);
      }
     }
-    document.getElementById('tm').innerHTML=clk(env.time[0]._text/60);
-	var box = document.getElementById('box');
+    document.getElementById('tm').innerHTML = clk(env.time[0]._text/60);
+    document.getElementById('ecoon').className = (env.eco._text == 1)?'on':'off';
+    document.getElementById('ecooff').className = (env.eco._text == 1)?'off':'on';
+    var box = document.getElementById('box');
     while (box.hasChildNodes()) box.removeChild(box.lastChild);
     box.appendChild(table);
   }}}
@@ -117,7 +119,7 @@ p, form,button{font-size:100%;color:#252525;}
 </head>
 <body onload='getIO("")';><form>
 <table class="box">
-<tr><td rowspan=2 class="bold" id="tm">..</td><td class="hcell">Eco mode</td><td class="off">ON</td><td class="on">OFF</td></tr>
+<tr><td rowspan=2 class="bold" id="tm">..</td><td class="hcell">Eco mode</td><td id="ecoon" class="off">ON</td><td id="ecooff" class="on">OFF</td></tr>
 <tr><td class="hcell">Alarm</td><td>&nbsp;</td><td class="off">OFF</td></tr>
 </table>
 <div id="box">

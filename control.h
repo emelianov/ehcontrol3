@@ -1,22 +1,22 @@
 //////////////////////////////////////////////////////
 // EHControl3 2016.3 (c)2016, a.m.emelianov@gmail.com
-// Heater control 2016.2.1
+// Heater control 2016.2.2
 
 #pragma once
  
-#define BURNER 0   //Горелка
-#define ZONE1 1    //Насос 1 этаж
-#define ZONE2 2    //Насос 2 этаж
-#define FLOOR 3     //Насос теплый пол
+#define BURNER 0      //Горелка
+#define ZONE1 1       //Насос 1 этаж
+#define ZONE2 2       //Насос 2 этаж
+#define FLOOR 3       //Насос теплый пол
 
-#define TIN 0       //Подача котла
-#define TZONE1 1       //Температура на 1 этаже
-#define TZONE2 2       //Температура на 2 этаже
-#define TFLOOR_OUT 3 //Обратка теплый пол
-#define TOUT 4      //Обратка котла
-#define TZONE1_OUT 5   //Обратка 1 этаж
-#define TZONE2_OUT 6   //Обратка 2 этаж
-#define TSTREET 11   //Температура на улице
+#define TIN 0         //Подача котла
+#define TZONE1 1      //Температура на 1 этаже
+#define TZONE2 2      //Температура на 2 этаже
+#define TFLOOR_OUT 3  //Обратка теплый пол
+#define TOUT 4        //Обратка котла
+#define TZONE1_OUT 5  //Обратка 1 этаж
+#define TZONE2_OUT 6  //Обратка 2 этаж
+#define TOUTSIDE 11   //Температура на улице
 
 #define IS_ON(S) relays[S].on
 #define TCUR(S) sens[S].tCurrent
@@ -49,11 +49,7 @@ uint32_t switchSchedule() {
   tIdle = relays[BURNER].t[ECO];
   tMax = relays[BURNER].t[OTHER];
   for(uint8_t i = 1; i < RELAY_COUNT; i++) {
-#ifdef ESP8266
     minutesFromMidnight = time(NULL) % 86400UL / 60;
-#else
-    minutesFromMidnight = (currentTime % 86400L)/60;
-#endif
     if (IS_ECO) {							// Eco mode
         relays[i].tHi = relays[i].t[ECO] + T_ECO_DELTA;
         relays[i].tLow = relays[i].t[ECO] - T_ECO_DELTA;       
@@ -90,10 +86,10 @@ uint32_t lazyRelays() {
 
 uint32_t switchRelays() {
   OFF(BURNER);
-  // Zone1 ON/OFF
+  // Zone_1 ON/OFF
   if (SHOULD_ON(TZONE1, ZONE1))     ON (ZONE1);
   if (SHOULD_OFF(TZONE1, ZONE1))    OFF(ZONE1);
-  // Zone2 ON/OFF
+  // Zone_2 ON/OFF
   if (SHOULD_ON(TZONE2, ZONE2))     ON (ZONE2);
   if (SHOULD_OFF(TZONE2, ZONE2))    OFF(ZONE2);
   // Burner ON/OFF
@@ -112,6 +108,13 @@ uint32_t switchRelays() {
        //ON(FLOOR);
       }
 */
+  }
+  if (TCUR(TIN) < TIDLE)
+  {// If Boiler is cold
+      OFF(BURNER);
+      OFF(ZONE1);
+      OFF(ZONE2);
+      OFF(FLOOR);
   }
   if (TCUR(TIN) > TMAX)
   {// If Boiler is overheat
