@@ -156,10 +156,10 @@ uint32_t startWiFi() {
       (xmlTag.endsWith("/partner") || xmlTag.endsWith("/pull")) {
       	for (i = 0; i < PARTNER_MAX_COUNT; i++) {
           if (pull[i] == "") {
-			      pull[i] = xmlData;
+			pull[i] = xmlData;
             break;
           }
-		    }
+		}
        } else if
       (xmlTag.endsWith("/push")) {
         for (i = 0; i < PARTNER_MAX_COUNT; i++) {
@@ -327,7 +327,7 @@ void setup(void){
   taskAdd(initTSensors);
   taskAdd(initMisc);
   taskAdd(initWeb);
-  taskAdd(ager);
+  //taskAdd(ager);
 } 
 void loop(void){
   TASKEXEC
