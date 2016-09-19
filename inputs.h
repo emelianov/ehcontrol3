@@ -76,6 +76,7 @@ bool readInputs() {
     inputs[i].gid         = 0;
     inputs[i].old         = false;
     inputs[i].on          = false;
+    inputs[i].inv         = false;
   };
   for (i = 0; i < ANALOG_COUNT; i++) {
     analogs[i].name       = "";

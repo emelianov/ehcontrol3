@@ -1,5 +1,9 @@
 <inputs>
 <input>
+<pin>0</pin><name>Dummy input</name><gid>0</gid>
+<inverse>0</inverse>
+</input>
+<input>
 <pin>16</pin><name>D0</name><gid>1200</gid>
 <inverse>0</inverse>
 </input>

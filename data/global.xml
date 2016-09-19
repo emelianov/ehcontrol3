@@ -1,7 +1,7 @@
 <ctrl>
 <config>
 <name>EHControl Partner</name>
-<ip>192.168.20.125</ip>
+<ip>192.168.20.124</ip>
 <mask>255.255.255.0</mask>
 <gw>192.168.20.2</gw>
 <dns>192.168.20.2</dns>
@@ -11,7 +11,7 @@
 <syslog>192.168.30.30</syslog>
 <ntps>192.168.20.2</ntps>
 <timezone>5</timezone>
-<partner>192.168.20.124</partner>
+<partner>192.168.20.126</partner>
 <pin1wire>5</pin1wire>
 </config>
 </ctrl>
