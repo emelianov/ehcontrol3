@@ -141,31 +141,34 @@ uint32_t initTSensors() {
   sensors.begin();
   sensors.setResolution(12);
   sensors.setWaitForConversion(false);
-  readSensors();
-  bool newDeviceAdded = false;
-  for (uint8_t i = 0; i < sensors.getDeviceCount(); i++) {
-  	DeviceAddress deviceFound;
-  	sensors.getAddress(deviceFound, i);
-  	uint8_t j = 0;
-  	for (j; j < DEVICE_MAX_COUNT; j++) {
-  		if (memcmp(sens[j].device, deviceFound, sizeof(DeviceAddress)) == 0) break;
-  	}
-  	if (j >= DEVICE_MAX_COUNT) {
-  		DeviceAddress zerro;
-  		memset(zerro, 0, sizeof(DeviceAddress));
-  		for (j = 0; j < DEVICE_MAX_COUNT; j++) {
-  			if (memcmp(sens[j].device, zerro, sizeof(DeviceAddress)) == 0 && sens[j].gid == 0) {
-   				memcpy(sens[j].device, deviceFound, sizeof(DeviceAddress));
-   				sens[j].name = "New device";
-     			newDeviceAdded = true;
-   		   	break;
-     		}
-  		}
-  	}
+  if (readSensors()) {
+    bool newDeviceAdded = false;
+    for (uint8_t i = 0; i < sensors.getDeviceCount(); i++) {
+  	  DeviceAddress deviceFound;
+  	  sensors.getAddress(deviceFound, i);
+  	  uint8_t j = 0;
+  	  for (j; j < DEVICE_MAX_COUNT; j++) {
+    		if (memcmp(sens[j].device, deviceFound, sizeof(DeviceAddress)) == 0) break;
+  	  }
+  	  if (j >= DEVICE_MAX_COUNT) {
+  		  DeviceAddress zerro;
+  		  memset(zerro, 0, sizeof(DeviceAddress));
+  		  for (j = 0; j < DEVICE_MAX_COUNT; j++) {
+  			  if (memcmp(sens[j].device, zerro, sizeof(DeviceAddress)) == 0 && sens[j].gid == 0) {
+   				  memcpy(sens[j].device, deviceFound, sizeof(DeviceAddress));
+   				  sens[j].name = "New device";
+     			  newDeviceAdded = true;
+   		   	  break;
+     		  }
+  		  }
+  	  }
+    }
+	  if (newDeviceAdded) {
+      saveSensors();
+    }
+    taskAdd(readTSensors);
+  } else {
+    use.sensors = false;
   }
-	if (newDeviceAdded) {
-    saveSensors();
-  }
-  taskAdd(readTSensors);
   return 0;
 }

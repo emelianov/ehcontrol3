@@ -61,6 +61,7 @@ void defaultInput(uint8_t i) {
     inputs[i].gid         = 0;
     inputs[i].old         = false;
     inputs[i].on          = false;
+    inputs[i].inv         = false;
 }
 bool readInputs() {
   int16_t i;

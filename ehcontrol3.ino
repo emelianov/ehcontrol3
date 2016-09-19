@@ -14,68 +14,74 @@
 #define AGER_EXPIRE   20
 #define WIFI_RETRY_DELAY 1000
 
-#define SYSTEM_PIN    0
+#define SYSTEM_PIN    0   //0 Config mode pin
 #define PIN_ACT       D4  //Net LED
 #define PIN_ALERT     D0  //16
 #define BUSY          digitalWrite(PIN_ACT, 0);
 #define IDLE          digitalWrite(PIN_ACT, 1);
 #define ALERT         digitalWrite(PIN_ALERT, LOW);
 #define NOALERT       digitalWrite(PIN_ALERT, HIGH);
+#define DEFAULT_NAME  "New"
+#define DEFAULT_ADMIN "admin"
+#define DEFAULT_PASS  "password3"
 
 #include <ESP8266WiFi.h>
 #include <WiFiClient.h>
 #include <WiFiUdp.h>
+
+//Syslog settings
+#define UDP_PORT 33666
+IPAddress sysLogServer(192, 168, 30, 30); // SysLog server
+//NTP settings
+#define NTP_CHECK_DELAY 300000;
+#define NTP_MAX_COUNT 3
+//WiFiUDP udp;
+String timeServer[NTP_MAX_COUNT];         // NTP servers
+int8_t timeZone = 0;
+//Controller settings
+#define SSID_MAX_LENGTH 16
+#define PASS_MAX_LENGTH 24
+String name(DEFAULT_NAME);
+String adminUsername(DEFAULT_ADMIN);
+String adminPassword(DEFAULT_PASS);
+struct features {
+  bool sensors;
+  bool lcd;
+  bool heater;
+  bool partners;
+  bool ap;
+};
+features use = {false, false, false, false, false};
+
 #include <Run.h>
 #include <FS.h>
 #include <TinyXML.h>
 #include "lcd2.h"
 #include "sensors.h"
 #include "inputs.h"
+#include "control.h"
 #include "relays.h"
 #include "partners.h"
-#include "control.h"
+#include "web.h"
 
-//Syslog settings
-#define UDP_PORT 33666
-IPAddress sysLogServer(192, 168, 30, 30);    // SysLog server
-//NTP settings
-#define NTP_CHECK_DELAY 300000;
-#define NTP_MAX_COUNT 3
-//WiFiUDP udp;
-String timeServer[NTP_MAX_COUNT];          // NTP servers
-int8_t timeZone = 0;
-//Controller settings
-#define SSID_MAX_LENGTH 16
-#define PASS_MAX_LENGTH 24
-String name("New");
-String adminUsername("admin");
-String adminPassword("password3");
 String pull[PARTNER_MAX_COUNT];
 String push[PARTNER_MAX_COUNT];
 String allow[PARTNER_MAX_COUNT];
-struct features {
-  bool sensors;
-  bool lcd;
-  bool heater;
-};
-features use;
+
 //XML processor settings
 String xmlOpen;
 String xmlTag;
 String xmlData;
 String xmlAttrib;
-#include "web.h"
 TinyXML xml;
 uint8_t buffer[150];
 void XML_callback(uint8_t statusflags, char* tagName, uint16_t tagNameLen, char* data, uint16_t dataLen) {
-  //Serial.println(tagName);
   if
   (statusflags & STATUS_TAG_TEXT) {
     xmlTag = String(tagName);
     xmlData = String(data);
   } else if
   (statusflags & STATUS_START_TAG) {
-    //Serial.println(tagName);
     xmlOpen = String(tagName);
   }
 }
@@ -127,7 +133,7 @@ uint32_t startWiFi() {
           }
         }
        } else if 
-      (xmlTag.endsWith("/timezone")) {
+      (xmlTag.endsWith(F("/timezone"))) {
         timeZone = xmlData.toInt();
        } else if 
       (xmlTag.endsWith("/ssid")) {
@@ -157,10 +163,10 @@ uint32_t startWiFi() {
       (xmlTag.endsWith("/partner") || xmlTag.endsWith("/pull")) {
       	for (i = 0; i < PARTNER_MAX_COUNT; i++) {
           if (pull[i] == "") {
-			pull[i] = xmlData;
+			      pull[i] = xmlData;
             break;
           }
-		}
+		    }
        } else if
       (xmlTag.endsWith("/push")) {
         for (i = 0; i < PARTNER_MAX_COUNT; i++) {
@@ -177,6 +183,21 @@ uint32_t startWiFi() {
             break;
           }
         }
+       } else if
+      (xmlTag.endsWith("/feature/sensors")) {
+        use.sensors = (xmlData.toInt() == 1);
+       } else if
+      (xmlTag.endsWith("/feature/lcd")) {
+        use.sensors = (xmlData.toInt() == 1);
+       } else if
+      (xmlTag.endsWith("/feature/heater")) {
+        use.heater = (xmlData.toInt() == 1);
+       } else if
+      (xmlTag.endsWith("/feature/partners")) {
+        use.partners = (xmlData.toInt() == 1);
+       } else if
+      (xmlTag.endsWith("/feature/ap")) {
+        use.ap = (xmlData.toInt() == 1);
        }
       xmlTag = "";
       xmlData = "";
@@ -213,7 +234,7 @@ uint32_t startWiFi() {
    }
    configFile.close();
   }
-  if (ssid != "" && password != "") { 
+  if (!use.ap && ssid != "" && password != "") { 
    if (ipIsOk) {
     WiFi.config(ip, gw, mask, ns);
    }
@@ -222,6 +243,7 @@ uint32_t startWiFi() {
    taskAdd(waitWiFi);
    return 0;
   } else {
+   use.ap = true;
    WiFi.mode(WIFI_AP);
    WiFi.begin();
    taskAddWithDelay(startWeb, 2000);
@@ -234,7 +256,9 @@ uint32_t waitWiFi() {
      if(WiFi.status() == WL_CONNECTED){
        taskAdd(initNtp);
        taskAdd(startWeb);
-       taskAdd(queryPartners);
+       if (use.partners) {
+        taskAdd(queryPartners);
+       }
        IDLE
        return 0;
      }
@@ -247,6 +271,9 @@ uint32_t waitWiFi() {
 
 //Start Open Access Point mode on button long press
 uint32_t startWiFiAP() {
+   use.ap = true;
+   adminUsername = F(DEFAULT_ADMIN);
+   adminPassword = F(DEFAULT_PASS);
    WiFi.mode(WIFI_AP);
    WiFi.begin();
    server.stop();
@@ -279,17 +306,18 @@ void buttonRelease() {
 }
 
 uint32_t initMisc() {
-  initLcd();
-  taskAdd(updateLcd);
   initInputs();
   defaultInput(0); //Override input at position 0 to NodeMCU button
   taskAdd(updateInputs);
   inputEvent(0, ON_ON, buttonPress);
   inputEvent(0, ON_OFF, buttonRelease);
-  initRelays();
-  taskAdd(switchSchedule);
-  taskAdd(switchRelays);
-  taskAdd(lazyRelays);
+  if (use.lcd) {
+    initLcd();
+    taskAdd(updateLcd);
+  }
+  if (use.heater) {
+    initRelays();
+  }
   return 0;
 }
 
@@ -310,11 +338,12 @@ uint32_t ager() {
       analogs[i].age += AGER_INTERVAL;
     }
   }
-
-  for (i = 0; i < DEVICE_MAX_COUNT; i++) {
+  if (use.sensors) {
+   for (i = 0; i < DEVICE_MAX_COUNT; i++) {
     if (sens[i].gid != 0 || memcmp(sens[i].device, zerro, sizeof(DeviceAddress)) != 0) {
       sens[i].age += AGER_INTERVAL;
     }
+   }
   }
 	return AGER_INTERVAL;
 }
@@ -328,10 +357,12 @@ void setup(void){
   SPIFFS.begin();
   xml.init((uint8_t *)buffer, sizeof(buffer), &XML_callback);
   taskAdd(startWiFi);
-  taskAdd(initTSensors);
+  if (use.sensors) {
+    taskAdd(initTSensors);
+  }
   taskAdd(initMisc);
   taskAdd(initWeb);
-  //taskAdd(ager);
+  taskAdd(ager);
 } 
 void loop(void){
   TASKEXEC

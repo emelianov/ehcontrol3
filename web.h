@@ -29,10 +29,10 @@ String getContentType(String filename){
 bool handleFileRead(String path){
   if(path.endsWith("/")) path += "index.html";
   String contentType = getContentType(path);
-  String pathWithGz = path + ".gz";
+  String pathWithGz = path + F(".gz");
   if(SPIFFS.exists(pathWithGz) || SPIFFS.exists(path)){
     if(SPIFFS.exists(pathWithGz))
-      path += ".gz";
+      path += F(".gz");
     File file = SPIFFS.open(path, "r");
     size_t sent = server.streamFile(file, contentType);
     file.close();
@@ -297,6 +297,18 @@ uint32_t disallowFormatAndReboot() {
   allowReboot = false;
   return 0;
 }
+uint32_t format() {
+  ALERT
+  SPIFFS.format();
+  NOALERT
+  return 0;
+}
+uint32_t reboot() {
+  ALERT
+  ESP.restart();
+  NOALERT
+  return 0;
+}
 void handleReboot() {
   if(!server.authenticate(adminUsername.c_str(), adminPassword.c_str())) {
     return server.requestAuthentication();
@@ -305,15 +317,16 @@ void handleReboot() {
   if (!allowReboot) {
     allowReboot = true;
     taskAddWithDelay(disallowFormatAndReboot, WEB_CONFIRM_TIME);
-    server.send_P(200, PSTR("text/html"), PSTR("<html><head><script>if (confirm('Procced with system reboot?')) window.location = '/reboot';</script></head></html>"));
+    server.send_P(200, PSTR("text/html"), PSTR("<html><head><script>window.localion= (confirm('Procced with system reboot?'))?'/reboot':'/config';</script></head></html>"));
     IDLE
   }
   WiFiUDP::stopAll();
   for (uint8_t i = 0; i < RELAY_COUNT; i++) {
       if (relays[i].pin != -1) { _off(i);}
   }
-  server.send_P(200, PSTR("text/html"), PSTR("<html><head><meta http-equiv=\"Refresh\" content=\"10; url=/\"></head><body>OK</body></html>"));
-	ESP.restart();
+  server.sendHeader("Refresh", "20; url=/");
+  server.send_P(200, PSTR("text/html"), PSTR("<html><body>OK</body></html>"));
+	taskAddWithDelay(reboot, 2000);
 }
 void handleFormat() {
   if(!server.authenticate(adminUsername.c_str(), adminPassword.c_str())) {
@@ -323,13 +336,13 @@ void handleFormat() {
   if (!allowFormat) {
     allowFormat = true;
     taskAddWithDelay(disallowFormatAndReboot, WEB_CONFIRM_TIME);
-    server.send_P(200, PSTR("text/html"), PSTR("<html><head><script>if (confirm('Procced with FORMAT and DESTROY ALL DATA on internal file system ?')) window.location = '/format';</script></head></html>"));
+    server.send_P(200, PSTR("text/html"), PSTR("<html><head><script>window.localion = (confirm('Procced with FORMAT and DESTROY ALL DATA on internal file system ?'))?'/format':'/config';</script></head></html>"));
     IDLE
   }
   allowFormat = false;
-  SPIFFS.format();
-  server.sendHeader("Refresh", "5; url=/config");
+  server.sendHeader("Refresh", "20; url=/config");
   server.send_P(200, PSTR("text/html"), PSTR("<html><body>OK</body></html>"));
+  taskAddWithDelay(format, 2000);
   IDLE
 }
 
@@ -432,8 +445,10 @@ uint32_t initWeb() {
   server.on("/edit", HTTP_POST, [](){ server.send(200, "text/plain", ""); }, handleFileUpload); //Upload file
   server.onNotFound(handleGenericFile);                           //Load file from FS
   server.on("/state", HTTP_GET, handleState);                     //Get sensors, relays, etc  state
-  server.on("/short", HTTP_GET, handleShortState);                //Get sensors, relays, etc  state
-  server.on("/pull", HTTP_GET, handleShortState);                 //Get sensors, relays, etc  state
+  if (use.partners) {
+    server.on("/short", HTTP_GET, handleShortState);              //Get sensors, relays, etc  state
+    server.on("/pull", HTTP_GET, handleShortState);               //Get sensors, relays, etc  state
+  }
   server.on("/all", HTTP_GET, handlePrivate);                     //Get internal information
   server.on("/reboot", HTTP_GET, handleReboot);                   //Reboot device
   server.on("/set", HTTP_GET, handleSet);                         //Set internal variable

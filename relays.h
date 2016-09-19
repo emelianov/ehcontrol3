@@ -14,7 +14,12 @@
 #define OTHER 3
 
 #define ECO_IN 1
+
 extern bool ecoMode;
+uint32_t switchSchedule();
+uint32_t lazyRelays();
+uint32_t switchRelays();
+
 struct relay {
   bool on;
   int16_t pin;
@@ -95,19 +100,21 @@ bool saveRelays() {
 
 bool readRelays() {
   //uint8_t i;
-  memset(relays, 0, sizeof(relays));
+  //memset(relays, 0, sizeof(relays));
   for (uint8_t i = 0; i < RELAY_COUNT; i++) {
-/*    relay.on    = false;
-    relay.pin   = -1;
-    relay.inv   = false;
-    relay.gid   = 0;
-    relay.tHi   = 0;
-    relay.tLow  = 0;
-  float t[4];
-  bool isT2;
-  uint16_t onT2;    // Nigth mode on time (minutes from midnight)
-  uint16_t offT2;   // Night mode off time (minutes from midnight)
-*/
+    relays[i].on    = false;
+    relays[i].pin   = -1;
+    relays[i].inv   = false;
+    relays[i].gid   = 0;
+    relays[i].tHi   = 0;
+    relays[i].tLow  = 0;
+    relays[i].t[0]  = 20;
+    relays[i].t[1]  = 20;
+    relays[i].t[2]  = 20;
+    relays[i].t[3]  = 20;
+    relays[i].isT2  = false;
+    relays[i].onT2  = 0;
+    relays[i].offT2 = 360;
     relays[i].name = String(i);
   };
   File configFile = SPIFFS.open(CFG_RELAYS, "r");
@@ -203,7 +210,7 @@ void ecoOff() {
   ecoMode = false;
 }
 void initRelays() {
-  readRelays();
+ if (readRelays()) {
   for (uint8_t i = 0; i < RELAY_COUNT; i++) {
    if (relays[i].pin != -1) {
     relays[i].tHi  = relays[i].t[ECO] + 0.5;
@@ -212,6 +219,12 @@ void initRelays() {
     _off(i);
    }
   }
-  inputEvent(ECO_IN, ON_ON, ecoOn);
-  inputEvent(ECO_IN, ON_OFF, ecoOff);
+  taskAdd(switchSchedule);
+  taskAdd(switchRelays);
+  taskAdd(lazyRelays); 
+ } else {
+  use.heater = false;
+ }
+ inputEvent(ECO_IN, ON_ON,  ecoOn);
+ inputEvent(ECO_IN, ON_OFF, ecoOff);
 }
