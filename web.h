@@ -1,6 +1,6 @@
-////////////////////////////////////////////////////
-// EHControl 2016.3
-//
+//////////////////////////////////////////////////////
+// EHControl3 2016.3 (c)2016, a.m.emelianov@gmail.com
+// HTTP-server
 
 #pragma once
 #include <ESP8266WebServer.h>
@@ -33,6 +33,9 @@ bool handleFileRead(String path){
   if(SPIFFS.exists(pathWithGz) || SPIFFS.exists(path)){
     if(SPIFFS.exists(pathWithGz))
       path += F(".gz");
+    server.sendHeader("Connection", "close");
+    server.sendHeader("Cache-Control", "no-store, must-revalidate");
+    server.sendHeader("Access-Control-Allow-Origin", "*");
     File file = SPIFFS.open(path, "r");
     size_t sent = server.streamFile(file, contentType);
     file.close();
@@ -46,6 +49,7 @@ void handleFile() {
     return server.requestAuthentication();
   }
   server.sendHeader("Connection", "close");
+  server.sendHeader("Cache-Control", "no-store, must-revalidate");
   server.sendHeader("Access-Control-Allow-Origin", "*");
   server.sendHeader("Refresh", "5; url=/config");
   server.send_P(200, "text/plain", PSTR("OK"));  
@@ -71,7 +75,7 @@ void handleFileUpload(){
   }
   IDLE
 }
-
+/*
 void handleFileDelete(){
   if(!server.authenticate(adminUsername.c_str(), adminPassword.c_str())) {
     return server.requestAuthentication();
@@ -106,11 +110,14 @@ void handleFileCreate(){
   server.send(200, "text/plain", "");
   path = String();
 }
+*/
 
 void handleSet() {
   BUSY
   if(server.hasArg("eco")) {
    ecoMode = server.arg("eco").toInt() == 1;
+   server.sendHeader("Connection", "close");
+   server.sendHeader("Cache-Control", "no-store, must-revalidate");
    server.send(200, "text/html", PSTR("<html><head><meta http-equiv=\"Refresh\" content=\"5; url=/\"></head><body><b>OK</b></body></html>"));
    IDLE
    return;
@@ -119,23 +126,12 @@ void handleSet() {
   IDLE
 }
 
-void handleRoot() {
-      if(!server.authenticate(adminUsername.c_str(), adminPassword.c_str())) {
-        return server.requestAuthentication();
-      }
-      BUSY
-      server.sendHeader("Connection", "close");
-      server.sendHeader("Access-Control-Allow-Origin", "*");
-      server.send_P(200, "text/html", PSTR("<form method='POST' action='/update' enctype='multipart/form-data'><input type='file' name='update'><input type='submit' value='Update'></form>"));
-      IDLE
-}
 void handleUpdate() {
       if(!server.authenticate(adminUsername.c_str(), adminPassword.c_str())) {
         return server.requestAuthentication();
       }
       BUSY
       server.sendHeader("Connection", "close");
-      server.sendHeader("Access-Control-Allow-Origin", "*");
       server.sendHeader("Refresh", "10; url=/");
       server.send(200, "text/plain", (Update.hasError())?"FAIL":"OK");
       ESP.restart();
@@ -184,7 +180,9 @@ void handleGenericFile() {
 void handlePrivate() {
   BUSY
   char data[400];
-  sprintf_P(data, PSTR("<?xml version = \"1.0\" ?><ctrl><private><heap>%d</heap><rssi>%d</rssi><a0>%d</a0><revision>%s</revision></private></ctrl>"), ESP.getFreeHeap(), WiFi.RSSI(), analogRead(A0), REVISION);
+  sprintf_P(data, PSTR("<?xml version = \"1.0\" encoding=\"UTF-8\" ?><ctrl><private><heap>%d</heap><rssi>%d</rssi><a0>%d</a0><revision>%s</revision></private></ctrl>"), ESP.getFreeHeap(), WiFi.RSSI(), analogRead(A0), REVISION);
+  server.sendHeader("Connection", "close");
+  server.sendHeader("Cache-Control", "no-store, must-revalidate");
   server.send(200, "text/xml", data);
   IDLE
 }
@@ -194,7 +192,7 @@ void handleShortState() {
   uint8_t i;
   DeviceAddress zerro;
   memset(zerro, 0, sizeof(DeviceAddress));
-  String result("<?xml version = \"1.0\" ?>\n<ctrl><state>\n");
+  String result("<?xml version = \"1.0\"  encoding=\"UTF-8\" ?>\n<ctrl><state>\n");
   for (i = 0; i < DEVICE_MAX_COUNT; i++) {
     if (sens[i].gid != 0 && memcmp(sens[i].device, zerro, sizeof(DeviceAddress)) != 0) {
      sprintf_P(buf, PSTR("<sensor><t>%s</t><gid>%d</gid></sensor>\n"), String(sens[i].tCurrent).c_str(), sens[i].gid);    
@@ -221,6 +219,8 @@ void handleShortState() {
   }
   sprintf_P(buf, PSTR("</state>\n<env>\n<time>%ld</time>\n<eco>%d</eco>\n</env>\n</ctrl>"), time(NULL) % 86400UL, ecoMode);
   result += buf;
+  server.sendHeader("Connection", "close");
+  server.sendHeader("Cache-Control", "no-store, must-revalidate");
   server.send(200, "text/xml", result);
   IDLE
 }
@@ -229,7 +229,7 @@ void handleState() {
   BUSY
   char buf[400];
   uint8_t i;
-  String result("<?xml version = \"1.0\" ?>\n<ctrl><state>\n");
+  String result("<?xml version = \"1.0\" encoding=\"UTF-8\" ?>\n<ctrl><state>\n");
   if (use.sensors || use.partners) {
     for (i = 0; i < DEVICE_MAX_COUNT; i++) {
      sprintf_P(buf, PSTR("<sensor><t>%s</t><name>%s</name><id>%02X%02X%02X%02X%02X%02X%02X%02X</id><gid>%d</gid><age>%d</age></sensor>\n"),
@@ -296,7 +296,8 @@ void handleState() {
   time(NULL) % 86400UL,
   (uint32_t)millis()/1000, ecoMode, name.c_str());
     result += buf;
-    
+    server.sendHeader("Connection", "close");
+    server.sendHeader("Cache-Control", "no-store, must-revalidate");    
     server.send(200, "text/xml", result);
     IDLE
 }
@@ -304,15 +305,11 @@ void handleState() {
 #define WEB_CONFIRM_TIME  15000
 bool allowFormat = false;
 bool allowReboot = false;
-uint32_t disallowFormatAndReboot() {
+bool allowDelete = false;
+uint32_t disallowFormatRebootDelete() {
   allowFormat = false;
   allowReboot = false;
-  return 0;
-}
-uint32_t format() {
-  ALERT
-  SPIFFS.format();
-  NOALERT
+  allowDelete = false;
   return 0;
 }
 
@@ -323,7 +320,9 @@ void handleReboot() {
   BUSY
   if (!allowReboot) {
     allowReboot = true;
-    taskAddWithDelay(disallowFormatAndReboot, WEB_CONFIRM_TIME);
+    taskAddWithDelay(disallowFormatRebootDelete, WEB_CONFIRM_TIME);
+    server.sendHeader("Connection", "close");
+    server.sendHeader("Cache-Control", "no-store, must-revalidate");
     server.sendHeader("Refresh", "15; url=/");
     server.send_P(200, PSTR("text/html"), PSTR("<html><head><script>window.location=(confirm('Procced with system reboot?'))?'/reboot':'/config';</script></head></html>"));
     IDLE
@@ -346,18 +345,48 @@ void handleFormat() {
   BUSY
   if (!allowFormat) {
     allowFormat = true;
-    taskAddWithDelay(disallowFormatAndReboot, WEB_CONFIRM_TIME);
+    taskAddWithDelay(disallowFormatRebootDelete, WEB_CONFIRM_TIME);
     server.send_P(200, PSTR("text/html"), PSTR("<html><head><script>window.location=(confirm('Procced with FORMAT and DESTROY ALL DATA on internal file system ?'))?'/format':'/config';</script></head></html>"));
     IDLE
     return;
   }
   allowFormat = false;
+  server.sendHeader("Connection", "close");
+  server.sendHeader("Cache-Control", "no-store, must-revalidate");
   server.sendHeader("Refresh", "15; url=/config");
   server.send_P(200, PSTR("text/plain"), PSTR("OK"));
-  //taskAddWithDelay(format, 2000);
   ALERT
   SPIFFS.format();
   NOALERT
+  IDLE
+}
+void handleDelete() {
+  if(!server.authenticate(adminUsername.c_str(), adminPassword.c_str())) {
+    return server.requestAuthentication();
+  }
+  BUSY
+  if (!allowDelete) {
+    allowDelete = true;
+    taskAddWithDelay(disallowFormatRebootDelete, WEB_CONFIRM_TIME);
+    server.send_P(200, PSTR("text/html"), PSTR("<html><head><script>window.location=(confirm('Procced with delete ?'))?'/delete'+window.location.search:'/config';</script></head></html>"));
+    IDLE
+    return;
+  }
+  allowDelete = false;
+  server.sendHeader("Connection", "close");
+  server.sendHeader("Cache-Control", "no-store, must-revalidate");
+  server.sendHeader("Refresh", "15; url=/config");
+  String path;
+  if(server.args() != 0) {
+    path = server.arg(0);
+    if(path != "/" && SPIFFS.exists(path)) {
+      SPIFFS.remove(path);
+      server.send_P(200, PSTR("text/plain"), PSTR("OK"));
+      IDLE
+      return;
+    }
+  }
+  server.send(200, PSTR("text/plain"), PSTR("ERROR"));
   IDLE
 }
 
@@ -366,7 +395,7 @@ void handleConfig() {
     return server.requestAuthentication();
   }
   BUSY
-  disallowFormatAndReboot();
+  disallowFormatRebootDelete();
   String path = server.hasArg("dir")?server.arg("dir"):"/";
   Dir dir = SPIFFS.openDir(path);
   String output = F("<html><head><meta charset='utf-8'><title>ehcontrol3</title>\
@@ -413,20 +442,23 @@ function sendFileToServer(url, fname, dataCallback) {\
  <input type='file' name='update'>\
  <input type='submit' value='Upload file'>\
 </form>\
-FileSystem contents:<br>");
+FileSystem contents:<br><table border=0px>");
   while(dir.next()){
     File entry = dir.openFile("r");
     String filename = String(entry.name());
-    output += F("<a href='");
+    output += F("<tr><td><a href='");
     output += filename;
     output += F("'>");
     output += filename.substring(1);
-    output += F("</a>&nbsp;<a href='' onClick='filename=\"");
+    output += F("</a></td><td><a href='' onClick='filename=\"");
     output += filename;
     output += F("\";getFileFromServer(filename, function(text) { if (text != null) document.getElementById(\"text\").value = text; });return false;'>Edit</a><br>");
+    output += F("</td><td><a href='' onClick='window.location=\"/delete?file=");
+    output += filename;
+    output += F("\";return false;'>Delete</a></td></tr>");
     entry.close();
   }
-  output += F("<br><form method='POST' action='/update' enctype='multipart/form-data'>\
+  output += F("</table><br><form method='POST' action='/update' enctype='multipart/form-data'>\
  Update firmware:<br>\
  <input type='file' name='update'>\
  <input type='submit' value='Update firmware'>\
@@ -443,21 +475,21 @@ FileSystem contents:<br>");
 </form>\
 </td></tr></body></html>");
   server.sendHeader("Connection", "close");
+  server.sendHeader("Cache-Control", "no-store, must-revalidate");
   server.sendHeader("Access-Control-Allow-Origin", "*");
-  server.send(200, "text/html", output);
+  server.send(200, "text/html; charset=utf-8", output);
   IDLE
 }
 
 uint32_t initWeb() {
 //First callback is called after the request has ended with all parsed arguments
 //Second callback handles file uploads at that location
-  server.on("/update", HTTP_GET, handleRoot);                       //Update
   server.on("/update", HTTP_POST, handleUpdate, handleUpdateUpload);//Update firmware
   server.on("/edit", HTTP_GET, [](){
     if(!handleFileRead("/edit.html")) server.send_P(404, "text/plain", PSTR("FileNotFound"));
   });
-  server.on("/edit", HTTP_PUT, handleFileCreate);                 //Create file
-  server.on("/edit", HTTP_DELETE, handleFileDelete);              //Delete file
+//  server.on("/edit", HTTP_PUT, handleFileCreate);                 //Create file
+//  server.on("/edit", HTTP_DELETE, handleFileDelete);              //Delete file
   server.on("/edit", HTTP_POST, handleFile, handleFileUpload);    //Upload file
   server.onNotFound(handleGenericFile);                           //Load file from FS
   server.on("/state", HTTP_GET, handleState);                     //Get sensors, relays, etc  state
@@ -469,6 +501,7 @@ uint32_t initWeb() {
   server.on("/reboot", HTTP_GET, handleReboot);                   //Reboot device
   server.on("/set", HTTP_GET, handleSet);                         //Set internal variable
   server.on("/format", HTTP_GET, handleFormat);                   //Format FileSystem
+  server.on("/delete", HTTP_GET, handleDelete);                   //Delete File
   server.on("/config", HTTP_GET, handleConfig);                   //System configuration
   server.on("/secure.xml", HTTP_GET, handleProtectedFile);        //Load restricted secure.xml from FS
   return 0;

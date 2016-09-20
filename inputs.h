@@ -1,5 +1,5 @@
 //////////////////////////////////////////////////////
-// EHControl2 2016.3 (c)2016, a.m.emelianov@gmail.com
+// EHControl3 2016.3 (c)2016, a.m.emelianov@gmail.com
 // Inputs\Outputs definitions, constants and routines
 
 #pragma once

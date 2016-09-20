@@ -1,7 +1,7 @@
-/////////////////////////////////////////////////////
-// EHControl 2016.3 (c)2016, a.m.emelianov@gmail.com
+//////////////////////////////////////////////////////
+// EHControl3 2016.3 (c)2016, a.m.emelianov@gmail.com
 //
-// 
+// ESP8266-based Home automation solution
 
 #define REVISION "2016.3.1"
 
@@ -28,6 +28,7 @@
 #include <ESP8266WiFi.h>
 #include <WiFiClient.h>
 #include <WiFiUdp.h>
+#include <time.h>
 
 //Syslog settings
 #define UDP_PORT 33666
@@ -226,7 +227,15 @@ uint32_t startWiFi() {
         ssid = xmlData;
        } else if 
       (xmlTag.endsWith("/ssidpass")) {
-        password = xmlData; 
+        password = xmlData;
+       } else if 
+      (xmlTag.endsWith("/protect")) {
+        if (!xmlData.startsWith("/")) {
+          xmlData = "/" + xmlData;
+        }
+        if (xmlData != "/secure.xml") {
+          server.on(xmlData.c_str(), HTTP_GET, handleProtectedFile);
+        }
        }
       xmlTag = "";
       xmlData = "";
