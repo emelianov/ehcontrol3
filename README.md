@@ -4,8 +4,10 @@ ESP8266-based Home automation solution
 *&copy;2016, Alexander Emelianov (a.m.emelianov@gmail.com)*
 
 ###1. Introduction
+This is system that can allow group of ESP8266-based devices share data of gpio, 1-Wire temperature sensors and analog inputs. Exchange and confiuration of system is based on XML. HTTP is used to control, monitor and interaction between devices.
+At the moment system is configured to function as heater controller.
 
-###2. Librares used
+###2. Resources used
 * Arduino (https://github.com/arduino/Arduino)
 * ESP8266 core for Arduino (https://github.com/esp8266/Arduino)
 * Run 2016.1 (https://github.com/emelianov/Run)
@@ -13,18 +15,17 @@ ESP8266-based Home automation solution
 * Library for the LiquidCrystal LCD display connected to an Arduino board (https://github.com/fdebrabander/Arduino-LiquidCrystal-I2C-library)
 
 ###3. Supported hardware
-At the moment code is only tested with NodeMCU 1.0 board.
+At the moment code is only tested on NodeMCU 1.0 board.
 
-###4. Initial configuration
-* Load code to ESP module with Arduino IDE or any way You able to.
+###4. Initial configuration mode for NodeMCU
+* Load code to module with Arduino IDE or any way You able to.
 * Power on module.
+* Press and hold for 2 seconds Flash button. On-board led starts lazy blinking.
 * Look open Wireless network named alike 'ESP_12345' and connect.
-* Open address http://192.168.4.1/config with your browser.
-* Press Format FileSystem.
-* Modify settings and press Save button.
+* Open address http://192.168.4.1/ with your browser. Use default admin name and password (admin/password3).
+* Press Format FileSystem button to initialize internal file system. Be patient to wait operation completes.
+Warning! If file system is not empty all data will be lost.
+* Upload and edit configuration files.
 * Reboot.
-
-###5. Building modules
-* Core and inputs
-* Temperature sensors
-* Heater control
+The same procedure can be used in case of lost network access to device or password.
+Device automaticly enters to Initial configuration mode if no *global.xml* file found.
