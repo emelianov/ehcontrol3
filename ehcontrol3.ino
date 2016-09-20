@@ -10,7 +10,7 @@
 
 #define ONEWIRE_PIN   D6  //12
 
-#define AGER_INTERVAL 15000
+#define AGER_INTERVAL 15
 #define AGER_EXPIRE   20
 #define WIFI_RETRY_DELAY 1000
 
@@ -133,7 +133,7 @@ uint32_t startWiFi() {
           }
         }
        } else if 
-      (xmlTag.endsWith(F("/timezone"))) {
+      (xmlTag.endsWith("/timezone")) {
         timeZone = xmlData.toInt();
        } else if 
       (xmlTag.endsWith("/ssid")) {
@@ -248,6 +248,7 @@ uint32_t startWiFi() {
    WiFi.begin();
    taskAddWithDelay(startWeb, 2000);
    taskAdd(buttonLongPressLedOn);
+   IDLE
    return 0;
   }
 }
@@ -338,14 +339,14 @@ uint32_t ager() {
       analogs[i].age += AGER_INTERVAL;
     }
   }
-  if (use.sensors) {
+  if (use.sensors || use.partners) {
    for (i = 0; i < DEVICE_MAX_COUNT; i++) {
     if (sens[i].gid != 0 || memcmp(sens[i].device, zerro, sizeof(DeviceAddress)) != 0) {
       sens[i].age += AGER_INTERVAL;
     }
    }
   }
-	return AGER_INTERVAL;
+	return AGER_INTERVAL * 1000;
 }
 void setup(void){
   Serial.begin(74880);
@@ -359,6 +360,8 @@ void setup(void){
   taskAdd(startWiFi);
   if (use.sensors) {
     taskAdd(initTSensors);
+  } else {
+    readSensors();
   }
   taskAdd(initMisc);
   taskAdd(initWeb);

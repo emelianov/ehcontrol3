@@ -29,7 +29,7 @@ String getContentType(String filename){
 bool handleFileRead(String path){
   if(path.endsWith("/")) path += "index.html";
   String contentType = getContentType(path);
-  String pathWithGz = path + F(".gz");
+  String pathWithGz = path + ".gz";
   if(SPIFFS.exists(pathWithGz) || SPIFFS.exists(path)){
     if(SPIFFS.exists(pathWithGz))
       path += F(".gz");
@@ -41,6 +41,15 @@ bool handleFileRead(String path){
   return false;
 }
 
+void handleFile() {
+  if(!server.authenticate(adminUsername.c_str(), adminPassword.c_str())) {
+    return server.requestAuthentication();
+  }
+  server.sendHeader("Connection", "close");
+  server.sendHeader("Access-Control-Allow-Origin", "*");
+  server.sendHeader("Refresh", "5; url=/config");
+  server.send_P(200, "text/plain", PSTR("OK"));  
+}
 void handleFileUpload(){
   if(!server.authenticate(adminUsername.c_str(), adminPassword.c_str())) {
     return server.requestAuthentication();
@@ -127,6 +136,7 @@ void handleUpdate() {
       BUSY
       server.sendHeader("Connection", "close");
       server.sendHeader("Access-Control-Allow-Origin", "*");
+      server.sendHeader("Refresh", "10; url=/");
       server.send(200, "text/plain", (Update.hasError())?"FAIL":"OK");
       ESP.restart();
 }
@@ -220,6 +230,7 @@ void handleState() {
   char buf[400];
   uint8_t i;
   String result("<?xml version = \"1.0\" ?>\n<ctrl><state>\n");
+  if (use.sensors || use.partners) {
     for (i = 0; i < DEVICE_MAX_COUNT; i++) {
      sprintf_P(buf, PSTR("<sensor><t>%s</t><name>%s</name><id>%02X%02X%02X%02X%02X%02X%02X%02X</id><gid>%d</gid><age>%d</age></sensor>\n"),
         String(sens[i].tCurrent).c_str(), sens[i].name.c_str(),
@@ -227,7 +238,8 @@ void handleState() {
         sens[i].gid, sens[i].age);    
      result += buf;
     }
-    
+  }
+  if (use.heater) {
     for (i = 0; i < RELAY_COUNT; i++) {
 		sprintf_P(buf, PSTR("\
 <relay><r>%d</r><rname>%s</rname>\
@@ -240,7 +252,7 @@ void handleState() {
         relays[i].onT2, relays[i].offT2, relays[i].isT2);
 		result += buf;
     }
-
+  }
     for (i = 0; i < INPUTS_COUNT; i++) {
       sprintf_P(buf, PSTR("<input><on>%d</on><gid>%d</gid><age>%d</age></input>\n"), inputs[i].on, inputs[i].gid, inputs[i].age);
       result += buf;
@@ -251,9 +263,9 @@ void handleState() {
       result += buf;
     }
 
-IPAddress ip = WiFi.localIP();
-IPAddress mask = WiFi.subnetMask();
-IPAddress gw = WiFi.gatewayIP();    
+  IPAddress ip = WiFi.localIP();
+  IPAddress mask = WiFi.subnetMask();
+  IPAddress gw = WiFi.gatewayIP();    
   sprintf_P(buf, PSTR("\
 </state>\n<config>\n\
 <ip>%d.%d.%d.%d</ip>\n\
@@ -289,7 +301,7 @@ IPAddress gw = WiFi.gatewayIP();
     IDLE
 }
 
-#define WEB_CONFIRM_TIME  20000
+#define WEB_CONFIRM_TIME  15000
 bool allowFormat = false;
 bool allowReboot = false;
 uint32_t disallowFormatAndReboot() {
@@ -303,12 +315,7 @@ uint32_t format() {
   NOALERT
   return 0;
 }
-uint32_t reboot() {
-  ALERT
-  ESP.restart();
-  NOALERT
-  return 0;
-}
+
 void handleReboot() {
   if(!server.authenticate(adminUsername.c_str(), adminPassword.c_str())) {
     return server.requestAuthentication();
@@ -317,16 +324,20 @@ void handleReboot() {
   if (!allowReboot) {
     allowReboot = true;
     taskAddWithDelay(disallowFormatAndReboot, WEB_CONFIRM_TIME);
-    server.send_P(200, PSTR("text/html"), PSTR("<html><head><script>window.localion= (confirm('Procced with system reboot?'))?'/reboot':'/config';</script></head></html>"));
+    server.sendHeader("Refresh", "15; url=/");
+    server.send_P(200, PSTR("text/html"), PSTR("<html><head><script>window.location=(confirm('Procced with system reboot?'))?'/reboot':'/config';</script></head></html>"));
     IDLE
+    return;
   }
   WiFiUDP::stopAll();
-  for (uint8_t i = 0; i < RELAY_COUNT; i++) {
+  if (use.heater) {
+    for (uint8_t i = 0; i < RELAY_COUNT; i++) {
       if (relays[i].pin != -1) { _off(i);}
+    }
   }
-  server.sendHeader("Refresh", "20; url=/");
-  server.send_P(200, PSTR("text/html"), PSTR("<html><body>OK</body></html>"));
-	taskAddWithDelay(reboot, 2000);
+  server.sendHeader("Refresh", "15; url=/");
+  server.send_P(200, PSTR("text/plain"), PSTR("OK"));
+	ESP.restart();
 }
 void handleFormat() {
   if(!server.authenticate(adminUsername.c_str(), adminPassword.c_str())) {
@@ -336,13 +347,17 @@ void handleFormat() {
   if (!allowFormat) {
     allowFormat = true;
     taskAddWithDelay(disallowFormatAndReboot, WEB_CONFIRM_TIME);
-    server.send_P(200, PSTR("text/html"), PSTR("<html><head><script>window.localion = (confirm('Procced with FORMAT and DESTROY ALL DATA on internal file system ?'))?'/format':'/config';</script></head></html>"));
+    server.send_P(200, PSTR("text/html"), PSTR("<html><head><script>window.location=(confirm('Procced with FORMAT and DESTROY ALL DATA on internal file system ?'))?'/format':'/config';</script></head></html>"));
     IDLE
+    return;
   }
   allowFormat = false;
-  server.sendHeader("Refresh", "20; url=/config");
-  server.send_P(200, PSTR("text/html"), PSTR("<html><body>OK</body></html>"));
-  taskAddWithDelay(format, 2000);
+  server.sendHeader("Refresh", "15; url=/config");
+  server.send_P(200, PSTR("text/plain"), PSTR("OK"));
+  //taskAddWithDelay(format, 2000);
+  ALERT
+  SPIFFS.format();
+  NOALERT
   IDLE
 }
 
@@ -351,6 +366,7 @@ void handleConfig() {
     return server.requestAuthentication();
   }
   BUSY
+  disallowFormatAndReboot();
   String path = server.hasArg("dir")?server.arg("dir"):"/";
   Dir dir = SPIFFS.openDir(path);
   String output = F("<html><head><meta charset='utf-8'><title>ehcontrol3</title>\
@@ -442,7 +458,7 @@ uint32_t initWeb() {
   });
   server.on("/edit", HTTP_PUT, handleFileCreate);                 //Create file
   server.on("/edit", HTTP_DELETE, handleFileDelete);              //Delete file
-  server.on("/edit", HTTP_POST, [](){ server.send(200, "text/plain", ""); }, handleFileUpload); //Upload file
+  server.on("/edit", HTTP_POST, handleFile, handleFileUpload);    //Upload file
   server.onNotFound(handleGenericFile);                           //Load file from FS
   server.on("/state", HTTP_GET, handleState);                     //Get sensors, relays, etc  state
   if (use.partners) {

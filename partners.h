@@ -44,7 +44,7 @@ void parsePartner(const String textXml) {
           					int8_t i = lookSensorByGid(partner.gid);
           					if (i >= 0) {
         						sens[i].tCurrent = partner.tCurrent;
-        						//sens[i].name = partner.name;
+        						sens[i].age = 0;
           					}
         				}
         				//memset(&partner, 0, sizeof(partner));
