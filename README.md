@@ -22,7 +22,7 @@ At the moment code is only tested on NodeMCU 1.0 board.
 * Power on module.
 * Press and hold for 2 seconds Flash button. On-board led starts lazy blinking.
 * Look open Wireless network named alike 'ESP_12345' and connect.
-* Open address http://192.168.4.1/ with your browser. Use default admin name and password (admin/password3).
+* Open address http://192.168.4.1/config with your browser. Use default admin name and password (admin/password3).
 * Press Format FileSystem button to initialize internal file system. Be patient to wait operation completes.
 Warning! If file system is not empty all data will be lost.
 * Upload and edit configuration files.
