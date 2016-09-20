@@ -13,14 +13,14 @@ ESP8266-based Home automation solution
 * Library for the LiquidCrystal LCD display connected to an Arduino board (https://github.com/fdebrabander/Arduino-LiquidCrystal-I2C-library)
 
 ###3. Supported hardware
-At the moment code is only tested on NodeMCU 1.0 board.
+At the moment code is only tested with NodeMCU 1.0 board.
 
 ###4. Initial configuration
-* Load code to module with Arduino IDE or any way You able to.
+* Load code to ESP module with Arduino IDE or any way You able to.
 * Power on module.
-* Look open Wireless network named alike 'xxx' and connect.
+* Look open Wireless network named alike 'ESP_12345' and connect.
 * Open address http://192.168.4.1/config with your browser.
-* Press Format Internal Storage.
+* Press Format FileSystem.
 * Modify settings and press Save button.
 * Reboot.
 
