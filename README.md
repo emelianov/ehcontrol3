@@ -27,5 +27,7 @@ At the moment code is only tested on NodeMCU 1.0 board.
 Warning! If file system is not empty all data will be lost.
 * Upload and edit configuration files.
 * Reboot.
+
 The same procedure can be used in case of lost network access to device or password.
+
 Device automaticly enters to Initial configuration mode if no *global.xml* file found.
