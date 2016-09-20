@@ -3,7 +3,7 @@
 <admin>admin</admin>
 <adminpass>password3</adminpass>
 <ssid>EW</ssid>
-<ssidpass>iMpress6264</ssidpass>
+<ssidpass>pass</ssidpass>
 <protect>secure.xml</protect>
 </secure>
 </ctrl>
