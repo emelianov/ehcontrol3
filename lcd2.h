@@ -7,10 +7,6 @@
 #include <LiquidCrystal_I2C.h>
 #include "sensors.h"
 #include "relays.h"
-#ifdef ESP8266
- #include <ESP8266WiFi.h>
- #include <time.h>
-#endif
 
 #ifndef LCD_ID
  #define LCD_ID    0x27
@@ -23,8 +19,6 @@
 #endif
 
 #define LCD_INTERVAL 5000
-
-//extern uint32_t currentTime;
 
 LiquidCrystal_I2C lcd(LCD_ID, LCD_WIDTH, LCD_HEIGHT);
 void initLcd() {
@@ -46,20 +40,15 @@ void initLcd() {
 int8_t wlLevel = 0;
 uint32_t updateLcd() {
   char  strTime[8];
-#ifdef ESP8266
   uint16_t  minutesFromMidnight = time(NULL) % 86400UL / 60;
-#else
-  uint16_t  minutesFromMidnight = currentTime % 86400UL / 60;
-#endif
   sprintf_P(strTime, PSTR("%02d:%02d"), (uint8_t)(minutesFromMidnight / 60), (uint8_t)(minutesFromMidnight % 60));
   lcd.setCursor(0,0);
   lcd.print(strTime);
-#ifdef ESP8266
-#define WL_MIN -90
+#define WL_MIN -100
 #define WL_MAX -24
   lcd.print(" rssi: ");
   lcd.print(WiFi.RSSI());
-  int8_t level = (WL_MAX - WiFi.RSSI())/10;
+  int8_t level = -(WL_MIN - WiFi.RSSI())/10;
   if (wlLevel != level) {
     wlLevel = level;
     byte disp[8];
@@ -76,21 +65,22 @@ uint32_t updateLcd() {
   }
   lcd.setCursor(0,1);
   lcd.print((sens[0].tCurrent==DEVICE_DISCONNECTED_C)?" --- ":String(sens[0].tCurrent));
+  lcd.setCursor(6,1);
+  lcd.print((sens[1].tCurrent==DEVICE_DISCONNECTED_C)?" --- ":String(sens[1].tCurrent));
+  lcd.setCursor(6,0);
+  lcd.print((sens[2].tCurrent==DEVICE_DISCONNECTED_C)?" --- ":String(sens[2].tCurrent));
 //  lcd.print(" Mem: ");
 //  lcd.print(ESP.getFreeHeap());
 //  lcd.print(" RSSI: ");
 //  lcd.print(WiFi.RSSI());
-  lcd.print(" ");
+  lcd.setCursor(12,1);
   for (uint8_t i=0; i < RELAY_COUNT; i++) {
-    if (relays[i].on) {
-      lcd.print("\2");
-    } else {
-      lcd.print(" ");
-    }
+    lcd.print(relays[i].on?"\2":" ");
   }
-  lcd.setCursor(15,1);
-  lcd.print(digitalRead(D3)?"\2":" ");  
-#endif
+  //lcd.print(" ");
+  //lcd.print((ecoMode?"\2":" "));
+  //lcd.setCursor(15,1);
+  //lcd.print(digitalRead(D3)?"\2":" ");  
   return LCD_INTERVAL;
 }
 

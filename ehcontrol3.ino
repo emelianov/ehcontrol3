@@ -28,6 +28,7 @@
 #include <ESP8266WiFi.h>
 #include <WiFiClient.h>
 #include <WiFiUdp.h>
+#include <time.h>
 
 //Syslog settings
 #define UDP_PORT 33666
@@ -188,7 +189,7 @@ uint32_t startWiFi() {
         use.sensors = (xmlData.toInt() == 1);
        } else if
       (xmlTag.endsWith("/feature/lcd")) {
-        use.sensors = (xmlData.toInt() == 1);
+        use.lcd = (xmlData.toInt() == 1);
        } else if
       (xmlTag.endsWith("/feature/heater")) {
         use.heater = (xmlData.toInt() == 1);
@@ -202,6 +203,7 @@ uint32_t startWiFi() {
       xmlTag = "";
       xmlData = "";
     }
+    yield();
    }
    configFile.close();
   }
@@ -234,10 +236,14 @@ uint32_t startWiFi() {
    }
    configFile.close();
   }
+  taskAdd(initMisc);
+  taskAdd(initWeb);
   if (!use.ap && ssid != "" && password != "") { 
    if (ipIsOk) {
     WiFi.config(ip, gw, mask, ns);
    }
+   WiFi.mode(WIFI_OFF);
+   delay(100);
    WiFi.mode(WIFI_STA);
    WiFi.begin(ssid.c_str(), password.c_str());
    taskAdd(waitWiFi);
@@ -256,10 +262,7 @@ uint32_t startWiFi() {
 uint32_t waitWiFi() {
      if(WiFi.status() == WL_CONNECTED){
        taskAdd(initNtp);
-       taskAdd(startWeb);
-       if (use.partners) {
-        taskAdd(queryPartners);
-       }
+       taskAddWithDelay(startWeb, 2000);
        IDLE
        return 0;
      }
@@ -312,13 +315,23 @@ uint32_t initMisc() {
   taskAdd(updateInputs);
   inputEvent(0, ON_ON, buttonPress);
   inputEvent(0, ON_OFF, buttonRelease);
-  if (use.lcd) {
-    initLcd();
-    taskAdd(updateLcd);
+
+  if (use.sensors) {
+    taskAdd(initTSensors);
+  } else {
+    readSensors();
   }
   if (use.heater) {
     initRelays();
   }
+  if (use.lcd) {
+    initLcd();
+    taskAdd(updateLcd);
+  }
+  if (use.partners) {
+    taskAdd(queryPartners);
+  }
+  taskAdd(ager);
   return 0;
 }
 
@@ -349,6 +362,7 @@ uint32_t ager() {
 	return AGER_INTERVAL * 1000;
 }
 void setup(void){
+  wdt_enable(0);
   Serial.begin(74880);
   pinMode (PIN_ACT, OUTPUT);
   pinMode (D3, INPUT);
@@ -358,16 +372,12 @@ void setup(void){
   SPIFFS.begin();
   xml.init((uint8_t *)buffer, sizeof(buffer), &XML_callback);
   taskAdd(startWiFi);
-  if (use.sensors) {
-    taskAdd(initTSensors);
-  } else {
-    readSensors();
-  }
-  taskAdd(initMisc);
-  taskAdd(initWeb);
-  taskAdd(ager);
+  //taskAdd(initMisc);
+  //taskAdd(initWeb);
+  //taskAdd(ager);
 } 
 void loop(void){
   TASKEXEC
+  wdt_reset();
   yield();
 } 

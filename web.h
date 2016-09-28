@@ -111,7 +111,7 @@ void handleSet() {
   BUSY
   if(server.hasArg("eco")) {
    ecoMode = server.arg("eco").toInt() == 1;
-   server.send(200, "text/html", PSTR("<html><head><meta http-equiv=\"Refresh\" content=\"5; url=/\"></head><body><b>OK</b></body></html>"));
+   server.send_P(200, "text/html", PSTR("<html><head><meta http-equiv=\"Refresh\" content=\"5; url=/\"></head><body><b>OK</b></body></html>"));
    IDLE
    return;
   }
