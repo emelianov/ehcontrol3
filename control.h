@@ -110,12 +110,14 @@ uint32_t switchRelays() {
       }
 */
   }
+/*
   if (TCUR(TIN) < TIDLE)
   {// If Boiler is cold
       OFF(ZONE1);
       OFF(ZONE2);
       OFF(FLOOR);
   }
+  */
   if (TCUR(TIN) > TMAX)
   {// If Boiler is overheat
       OFF(BURNER);
