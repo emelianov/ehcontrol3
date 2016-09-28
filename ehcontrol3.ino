@@ -51,8 +51,9 @@ struct features {
   bool heater;
   bool partners;
   bool ap;
+  bool syslog;
 };
-features use = {false, false, false, false, false};
+features use = {false, false, false, false, false, false};
 
 #include <Run.h>
 #include <FS.h>

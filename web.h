@@ -117,8 +117,9 @@ void handleSet() {
   if(server.hasArg("eco")) {
    ecoMode = server.arg("eco").toInt() == 1;
    server.sendHeader("Connection", "close");
-   server.sendHeader("Cache-Control", "no-store, must-revalidate");
-   server.send(200, "text/html", PSTR("<html><head><meta http-equiv=\"Refresh\" content=\"5; url=/\"></head><body><b>OK</b></body></html>"));
+   //server.sendHeader("Cache-Control", "no-store, must-revalidate");
+   server.sendHeader("Refresh", "5; url=/");
+   server.send_P(200, "text/plain", PSTR("OK"));
    IDLE
    return;
   }
@@ -192,7 +193,7 @@ void handleShortState() {
   uint8_t i;
   DeviceAddress zerro;
   memset(zerro, 0, sizeof(DeviceAddress));
-  String result("<?xml version = \"1.0\"  encoding=\"UTF-8\" ?>\n<ctrl><state>\n");
+  String result = F("<?xml version = \"1.0\"  encoding=\"UTF-8\" ?>\n<ctrl><state>\n");
   for (i = 0; i < DEVICE_MAX_COUNT; i++) {
     if (sens[i].gid != 0 && memcmp(sens[i].device, zerro, sizeof(DeviceAddress)) != 0) {
      sprintf_P(buf, PSTR("<sensor><t>%s</t><gid>%d</gid></sensor>\n"), String(sens[i].tCurrent).c_str(), sens[i].gid);    
@@ -229,7 +230,7 @@ void handleState() {
   BUSY
   char buf[400];
   uint8_t i;
-  String result("<?xml version = \"1.0\" encoding=\"UTF-8\" ?>\n<ctrl><state>\n");
+  String result = F("<?xml version = \"1.0\" encoding=\"UTF-8\" ?>\n<ctrl><state>\n");
   if (use.sensors || use.partners) {
     for (i = 0; i < DEVICE_MAX_COUNT; i++) {
      sprintf_P(buf, PSTR("<sensor><t>%s</t><name>%s</name><id>%02X%02X%02X%02X%02X%02X%02X%02X</id><gid>%d</gid><age>%d</age></sensor>\n"),
@@ -480,7 +481,15 @@ FileSystem contents:<br><table border=0px>");
   server.send(200, "text/html; charset=utf-8", output);
   IDLE
 }
-
+void handleWeather() {
+  server.sendHeader("Connection", "close");
+  server.sendHeader("Cache-Control", "no-store, must-revalidate");
+  server.sendHeader(F("Access-Control-Allow-Origin"), "*");
+  String output = F("{ \"temperature\": ");
+  output += String(sens[1].tCurrent);
+  output += F(", \"humidity\": 38 }");
+  server.send(200, "text/html; charset=utf-8", output);
+}
 uint32_t initWeb() {
 //First callback is called after the request has ended with all parsed arguments
 //Second callback handles file uploads at that location
@@ -504,6 +513,7 @@ uint32_t initWeb() {
   server.on("/delete", HTTP_GET, handleDelete);                   //Delete File
   server.on("/config", HTTP_GET, handleConfig);                   //System configuration
   server.on("/secure.xml", HTTP_GET, handleProtectedFile);        //Load restricted secure.xml from FS
+  server.on("/weather", HTTP_GET, handleWeather);                 //For testing
   return 0;
 }
 uint32_t handleWeb() {
