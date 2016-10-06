@@ -330,6 +330,7 @@ uint32_t initMisc() {
   } else {
     readSensors();
   }
+  //taskAdd(readTSensors);
   if (use.heater) {
     initRelays();
   }
