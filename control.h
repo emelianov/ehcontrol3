@@ -32,9 +32,9 @@
 #define SHOULD_ON(S,R) TCUR(S) < TLOW(R)
 #define SHOULD_OFF(S,R) TCUR(S) > THI(R)
 
-#define T_ECO_DELTA 3.0
-#define T_DAY_DELTA 1.0
-#define T_NIGHT_DELTA 2.0
+#define T_ECO_DELTA 1.5
+#define T_DAY_DELTA 0.5
+#define T_NIGHT_DELTA 1.0
 #define T_BOILER_DELTA 10.0
 
 float tIdle = 40;
