@@ -1,9 +1,11 @@
 //////////////////////////////////////////////////////
-// EHControl3 2016.3 (c)2016, a.m.emelianov@gmail.com
+// EHControl3 2016.4 (c)2016, a.m.emelianov@gmail.com
 // Inputs\Outputs definitions, constants and routines
 
 #pragma once
+#include <pcf8574_esp.h>
 
+#define I2C_OFFSET 100
 #define INPUTS_COUNT 16
 #define ANALOG_COUNT 4
 #define CFG_INPUTS "/inputs.xml"
@@ -17,6 +19,24 @@
 
 typedef void (*INcallback)();
 
+PCF857x * i2cGpio = NULL;
+// PWR/DATA Connector
+// 1 GRND
+// 2 PWR
+// 3 PWR
+// 4 0
+// 5 1
+// 6 2
+// 7 nc
+// 8 nc
+// 9 nc
+//10 nc
+//11 4
+//12 5
+//13 6
+//14 7
+//15 PWR via SW
+//16 GRND
 struct gpio {
   bool on;
   bool old;
@@ -50,6 +70,36 @@ struct aio {
 gpio inputs[INPUTS_COUNT];
 aio analogs[ANALOG_COUNT];
 extern TinyXML xml;
+uint8_t gread(uint8_t pin) {
+  if (pin >= I2C_OFFSET) {
+    return i2cGpio->read(pin - I2C_OFFSET);
+  } else {
+    return digitalRead(pin);
+  }
+}
+void gwrite(uint8_t pin, uint8_t value) {
+  if (pin >= I2C_OFFSET) {
+    if (i2cGpio != NULL) {
+      i2cGpio->write(pin - I2C_OFFSET, value);
+    }
+  } else {
+    digitalWrite(pin, value);
+  }
+}
+void gmode(uint8_t pin, uint8_t mode) {
+  if (pin >= I2C_OFFSET) {
+    if (i2cGpio != NULL) {
+      if (mode == INPUT) {
+        i2cGpio->read(pin - I2C_OFFSET);
+      } else {
+        i2cGpio->write(pin - I2C_OFFSET, HIGH);
+      }
+    }
+  } else {
+    pinMode(pin, mode);
+  }
+}
+
 void defaultInput(uint8_t i) {
     inputs[i].name        = "Default";
     inputs[i].onClick     = NULL;
@@ -64,7 +114,7 @@ void defaultInput(uint8_t i) {
     inputs[i].inv         = false;
 }
 bool readInputs() {
-  int16_t i;
+  int8_t i;
 
   for (i = 0; i < INPUTS_COUNT; i++) {
     inputs[i].name = "";
@@ -103,6 +153,8 @@ bool readInputs() {
    int8_t j = 0;
    bool inputOpen = false;
    bool analogOpen = false;
+   uint8_t i2cAddr = 0;
+   uint8_t i2cInit = 0;
    while (configFile.read((uint8_t*)&c, 1) == 1) {
     xml.processChar(c);
     if (xmlTag != "" || xmlOpen != "") {
@@ -129,32 +181,41 @@ bool readInputs() {
           //Config error
         }
        } else if
-      (xmlTag.endsWith("analog/pin")) {
+      (xmlTag.endsWith(F("/analog/pin"))) {
          analogs[j].pin = 1;
        } else if
-      (xmlTag.endsWith("input/pin")) {
+      (xmlTag.endsWith(F("/input/pin"))) {
          inputs[i].pin = xmlData.toInt();
        } else if
-      (xmlTag.endsWith("analog/gid")) {
+      (xmlTag.endsWith(F("/analog/gid"))) {
         analogs[j].gid = xmlData.toInt();
        } else if
-      (xmlTag.endsWith("input/gid")) {
+      (xmlTag.endsWith(F("/input/gid"))) {
         inputs[i].gid = xmlData.toInt();
        } else if
-      (xmlTag.endsWith("analog/name")) {
+      (xmlTag.endsWith(F("/analog/name"))) {
         analogs[j].name = xmlData;
        } else if
-      (xmlTag.endsWith("input/name")) {
+      (xmlTag.endsWith(F("/input/name"))) {
         inputs[i].name = xmlData;
        } else if
-      (xmlTag.endsWith("analog/low")) {
+      (xmlTag.endsWith(F("/analog/low"))) {
         analogs[j].lowMark = xmlData.toInt();
        } else if
-      (xmlTag.endsWith("analog/high")) {
+      (xmlTag.endsWith(F("/analog/high"))) {
         analogs[j].highMark = xmlData.toInt();
        } else if
-      (xmlTag.endsWith("input/inverse")) {
+      (xmlTag.endsWith(F("/input/inverse"))) {
         inputs[i].inv = (xmlData.toInt() == 1);
+       } else if
+      (xmlTag.endsWith(F("/i2c/address"))) {
+        i2cAddr = xmlData.toInt();
+       } else if
+      (xmlTag.endsWith(F("/i2c/init"))) {
+        i2cInit = xmlData.toInt();
+       } else if
+      (xmlTag.endsWith(F("/i2c/base"))) {
+        //Reserved
        } else {
         // Config syntax error
        }
@@ -163,6 +224,12 @@ bool readInputs() {
     xmlOpen = "";
    }
    configFile.close();
+   if (i2cAddr > 0) {
+    Wire.begin();
+    i2cGpio = new PCF857x(i2cAddr, &Wire);
+    i2cGpio->begin();
+    i2cGpio->write8(i2cInit);
+   }
    return true;
   }
   return false;  
@@ -198,7 +265,7 @@ uint32_t updateInputs() {
 	for (i = 0; i < INPUTS_COUNT; i++) {
 		if (inputs[i].pin >= 0) {
       inputs[i].age = 0;
-			inputs[i].on = (digitalRead(inputs[i].pin)==LOW)?true:false;
+			inputs[i].on = (gread(inputs[i].pin)==LOW)?true:false;
 			if (inputs[i].on != inputs[i].old) {
 				inputs[i].old = inputs[i].on;
 				if (inputs[i].on) {

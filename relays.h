@@ -1,5 +1,5 @@
 //////////////////////////////////////////////////////
-// EHControl3 2016.3 (c)2016, a.m.emelianov@gmail.com
+// EHControl3 2016.4 (c)2016, a.m.emelianov@gmail.com
 // Relays definitions, constants and routines
 
 #pragma once
@@ -14,6 +14,14 @@
 #define OTHER 3
 
 #define ECO_IN 1
+
+#define DT_ECO 1.5
+#define DT_DAY 0.5
+#define DT_NIGHT 1.0
+#define DT_BOILER 10.0
+
+#define T_LIMIT_MIN 5
+#define T_LIMIT_MAX 95
 
 extern bool ecoMode;
 uint32_t switchSchedule();
@@ -40,6 +48,10 @@ struct graph {
 
 relay relays[RELAY_COUNT];
 graph tGraph[TGRAPH_COUNT];
+float dTeco = DT_ECO;
+float dTday = DT_DAY;
+float dTnight = DT_NIGHT;
+float dTboiler = DT_BOILER;
 
 #define OFF(RELAY) relays[RELAY].on=false;
 #define ON(RELAY)  relays[RELAY].on=true;
@@ -56,28 +68,29 @@ float eqTemp(float t) { //Look t in temperature graph function and return corres
 }
 
 void _on(uint8_t i) {
-  if (relays[i].inv) {digitalWrite(relays[i].pin,HIGH);} else {digitalWrite(relays[i].pin,LOW);};
+  if (relays[i].inv) {gwrite(relays[i].pin,HIGH);} else {gwrite(relays[i].pin,LOW);};
   relays[i].on = true;
 }
 void _off(uint8_t i) { 
-  if (relays[i].inv) {digitalWrite(relays[i].pin,LOW);} else {digitalWrite(relays[i].pin,HIGH);};
+  if (relays[i].inv) {gwrite(relays[i].pin,LOW);} else {gwrite(relays[i].pin,HIGH);};
   relays[i].on=false;
 }
 void _switch() {
   uint8_t i;
   for (i = 0; i < RELAY_COUNT; i++) {
-    if (relays[i].inv) {digitalWrite(relays[i].pin,relays[i].on?HIGH:LOW);} else {digitalWrite(relays[i].pin,relays[i].on?LOW:HIGH);};
+    if (relays[i].inv) {gwrite(relays[i].pin,relays[i].on?HIGH:LOW);} else {gwrite(relays[i].pin,relays[i].on?LOW:HIGH);};
   }
 }
 
 bool saveRelays() {
    File configFile = SPIFFS.open(CFG_RELAYS, "w");
    if (configFile) {
-    char buf[200];
-    sprintf_P(buf, PSTR("<?xml version = \"1.0\" ?>\n<relays>\n"));
+    char buf[400];
+    sprintf_P(buf, PSTR("<?xml version = \"1.0\" ?>\n<relays>\n<eco>%d</eco>\n<dteco>%s</dteco>\n<dtday>%s</dtday><dtnight>%s</dtnight>\n<dtboiler>%s</dtboiler>\n"),
+    ecoMode, String(dTeco).c_str(), String(dTday).c_str(), String(dTnight).c_str(), String(dTboiler).c_str());
     configFile.write((uint8_t*)buf, strlen(buf));
     for (uint8_t i = 0; i < RELAY_COUNT; i++) {
-      sprintf_P(buf, PSTR("<relay>\n<pin></pin><gid>%d</gid>\n<inverse>%d</inverse><name>%s</name><t0>%s</t0><t1>%s</t1><t2>%s</t2><t3>%s</t3></relay>\n<ton>%d</ton><toff>%d</toff>\n</relay>\n"),
+      sprintf_P(buf, PSTR("<relay>\n<pin>%d</pin><gid>%d</gid>\n<inverse>%d</inverse><name>%s</name>\n<t0>%s</t0><t1>%s</t1><t2>%s</t2><t3>%s</t3>\n<ton>%d</ton><toff>%d</toff>\n</relay>\n"),
                  relays[i].pin, relays[i].gid, relays[i].inv, relays[i].name.c_str(),
                  String(relays[i].t[0]).c_str(), String(relays[i].t[1]).c_str(), String(relays[i].t[2]).c_str(), String(relays[i].t[3]).c_str(),
                  relays[i].onT2, relays[i].offT2
@@ -85,8 +98,8 @@ bool saveRelays() {
       configFile.write((uint8_t*)buf, strlen(buf));
     }
     for (uint8_t i = 0; i < TGRAPH_COUNT; i++) {
-      sprintf_P(buf, PSTR("<t%d><e>%d</e><h>%d</h></t%d>\n"),
-                i, tGraph[i].x, tGraph[i].y, i
+      sprintf_P(buf, PSTR("<t><e>%s</e><h>%s</h></t>\n"),
+                String(tGraph[i].x).c_str(), String(tGraph[i].y).c_str()
                );
       configFile.write((uint8_t*)buf, strlen(buf));
     }
@@ -97,7 +110,10 @@ bool saveRelays() {
    }
    return false;  
 }
-
+uint32_t saveRelaysSettings() {
+  saveRelays();
+  return 0;
+}
 bool readRelays() {
   //uint8_t i;
   //memset(relays, 0, sizeof(relays));
@@ -119,12 +135,7 @@ bool readRelays() {
   };
   File configFile = SPIFFS.open(CFG_RELAYS, "r");
   if (configFile) {
-   //TinyXML xml;
-   //uint8_t buffer[150];
-   //xml.init((uint8_t *)buffer, sizeof(buffer), &XML_callback);
    char c;
-   //xmlTag = "";
-   //xmlOpen = "";
    xml.reset();
    xmlTag = "";
    xmlOpen = "";
@@ -135,11 +146,8 @@ bool readRelays() {
    while (configFile.read((uint8_t*)&c, 1) == 1) {
     xml.processChar(c);
     if (xmlTag != "" || xmlOpen != "") {
-      //Serial.println(xmlTag);
-      //Serial.println(i);
        if 
-      (xmlOpen.endsWith("/relay")) {
-        //xmlOpen = "";
+      (xmlOpen.endsWith(F("/relay"))) {
         if (i < RELAY_COUNT - 1) {
           if (relayOpen) {
             i++;
@@ -148,9 +156,8 @@ bool readRelays() {
           }
         }
        } else if
-      (xmlOpen.endsWith("/t")) {
-        //xmlOpen = "";
-        if (j < TGRAPH_COUNT) {
+      (xmlOpen.endsWith(F("/t"))) {
+        if (j < TGRAPH_COUNT - 1) {
           if (tOpen) {
             j++;
           } else {
@@ -158,43 +165,59 @@ bool readRelays() {
           }
         }        
        } else if
-      (xmlTag.endsWith("/pin")) {
+      (xmlTag.endsWith(F("/relay/pin"))) {
        relays[i].pin = xmlData.toInt();
        } else if
-      (xmlTag.endsWith("/gid")) {
+      (xmlTag.endsWith(F("/relay/gid"))) {
         relays[i].gid = xmlData.toInt();
        } else if
-      (xmlTag.endsWith("/t0")) {
+      (xmlTag.endsWith(F("/relay/t0"))) {
         relays[i].t[0] = xmlData.toFloat();
        } else if
-      (xmlTag.endsWith("/t1")) {
+      (xmlTag.endsWith(F("/relay/t1"))) {
         relays[i].t[1] = xmlData.toFloat();
        } else if
-      (xmlTag.endsWith("/t2")) {
+      (xmlTag.endsWith(F("/relay/t2"))) {
         relays[i].t[2] = xmlData.toFloat();
        } else if
-      (xmlTag.endsWith("/t3")) {
+      (xmlTag.endsWith(F("/relay/t3"))) {
         relays[i].t[3] = xmlData.toFloat();
        } else if
-      (xmlTag.endsWith("/ton")) {
+      (xmlTag.endsWith(F("/relay/ton"))) {
         relays[i].onT2 = xmlData.toInt();
        } else if
-      (xmlTag.endsWith("/toff")) {
+      (xmlTag.endsWith(F("/relay/toff"))) {
         relays[i].offT2 = xmlData.toInt();
        } else if
-      (xmlTag.endsWith("/name")) {
+      (xmlTag.endsWith(F("/relay/name"))) {
         relays[i].name = xmlData;
        } else if
-      (xmlTag.endsWith("/inverse")) {
+      (xmlTag.endsWith(F("/relay/inverse"))) {
         relays[i].inv = (xmlData.toInt() == 1);
        } else if
-      (xmlTag.endsWith("/e")) {
+      (xmlTag.endsWith(F("/t/e"))) {
         tGraph[j].x = xmlData.toFloat();
        } else if
-      (xmlTag.endsWith("/h")) {
+      (xmlTag.endsWith(F("/t/h"))) {
         tGraph[j].y = xmlData.toFloat();
+       } else if
+      (xmlTag.endsWith(F("/dteco"))) {
+        dTeco = xmlData.toFloat();
+       } else if
+      (xmlTag.endsWith(F("/dtday"))) {
+        dTday = xmlData.toFloat();
+       } else if
+      (xmlTag.endsWith(F("/dthight"))) {
+        dTnight = xmlData.toFloat();
+       } else if
+      (xmlTag.endsWith(F("/dtboiler"))) {
+        dTboiler = xmlData.toFloat();
+       } else if
+      (xmlTag.endsWith(F("/eco"))) {
+        ecoMode = xmlData.toInt() == 1;
      }
     }
+     Serial.println(relays[0].pin);
     xmlTag = "";
     xmlOpen = "";
    }
@@ -215,7 +238,7 @@ void initRelays() {
    if (relays[i].pin != -1) {
     relays[i].tHi  = relays[i].t[ECO] + 0.5;
     relays[i].tLow = relays[i].t[ECO] - 0.5;
-    pinMode(relays[i].pin,OUTPUT);
+    gmode(relays[i].pin,OUTPUT);
     _off(i);
    }
   }

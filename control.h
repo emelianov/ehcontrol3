@@ -1,6 +1,6 @@
 //////////////////////////////////////////////////////
-// EHControl3 2016.3 (c)2016, a.m.emelianov@gmail.com
-// Heater control 2016.2.2
+// EHControl3 2016.4 (c)2016, a.m.emelianov@gmail.com
+// Heater control 2016.2.3
 
 #pragma once
  
@@ -18,8 +18,11 @@
 #define TZONE2_OUT 6  //Обратка 2 этаж
 #define TOUTSIDE 11   //Температура на улице
 
+#define TGET(S) sens[S].tCurrent
+#define TAGE(S) sens[S].age
 #define IS_ON(S) relays[S].on
-#define TCUR(S) sens[S].tCurrent
+//#define TCUR(S) sens[S].tCurrent
+#define TCUR(S) temps[S]
 #define THI(S) relays[S].tHi
 #define TLOW(S) relays[S].tLow
 #define IS_IN(S) ins[S].on
@@ -32,19 +35,26 @@
 #define SHOULD_ON(S,R) TCUR(S) < TLOW(R)
 #define SHOULD_OFF(S,R) TCUR(S) > THI(R)
 
-#define T_ECO_DELTA 1.5
-#define T_DAY_DELTA 0.5
-#define T_NIGHT_DELTA 1.0
-#define T_BOILER_DELTA 10.0
+#define T_ECO_DELTA dTeco
+#define T_DAY_DELTA dTday
+#define T_NIGHT_DELTA dTnight
+#define T_BOILER_DELTA dTboiler
 
 float tIdle = 40;
 float tMax = 80;
 
 bool ecoMode = false;
-  
+float temps[3];
+
 uint32_t switchSchedule() {
   uint16_t minutesFromMidnight;
-  relays[BURNER].tHi = relays[BURNER].t[DAY];
+  if (IS_ECO) {
+    Serial.println(relays[BURNER].t[NIGHT]);
+    relays[BURNER].tHi = relays[BURNER].t[NIGHT];
+  } else {
+    Serial.println(relays[BURNER].t[DAY]);
+    relays[BURNER].tHi = relays[BURNER].t[DAY];
+  }
   relays[BURNER].tLow = relays[BURNER].tHi - T_BOILER_DELTA;
   tIdle = relays[BURNER].t[ECO];
   tMax = relays[BURNER].t[OTHER];
@@ -72,7 +82,32 @@ uint32_t switchSchedule() {
   return 30000;  //30sec
 }
 
+bool fillRelays() {
+  if (TAGE(TIN) > AGER_EXPIRE) {
+    return false;
+  }
+  temps[TIN]    = TGET(TIN);
+  temps[TZONE1]  = TGET(TZONE1);
+  temps[TZONE2]  = TGET(TZONE2);
+   if 
+  (TAGE(TZONE1) <= AGER_EXPIRE && TAGE(TZONE2) <= AGER_EXPIRE) {
+    return true;
+   } else if
+  (TAGE(TZONE1) > AGER_EXPIRE && TAGE(TZONE2) <= AGER_EXPIRE) {
+    temps[TZONE1] = TGET(ZONE2);
+    return true;
+   } else if 
+  (TAGE(TZONE2) > AGER_EXPIRE && TAGE(TZONE1) <= AGER_EXPIRE) {
+    temps[TZONE1] = TGET(ZONE2);
+    return true;
+  }
+  temps[TZONE1] = 20;
+  temps[TZONE2] = 20;
+  return true;
+}
+
 uint32_t lazyRelays() {
+  fillRelays();
   if (TCUR(TIN) < TMAX)
   {// If Boiler is not overheat
   	if (relays[FLOOR].isT2 || TCUR(TIN) < TIDLE || IS_ECO) {
@@ -85,6 +120,7 @@ uint32_t lazyRelays() {
 }
 
 uint32_t switchRelays() {
+  fillRelays();
   //OFF(BURNER);
   // Zone_1 ON/OFF
   if (SHOULD_ON(TZONE1, ZONE1))     ON (ZONE1);

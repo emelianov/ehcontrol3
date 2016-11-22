@@ -1,5 +1,5 @@
 //////////////////////////////////////////////////////
-// EHControl3 2016.3 (c)2016, a.m.emelianov@gmail.com
+// EHControl3 2016.4 (c)2016, a.m.emelianov@gmail.com
 // HTTP-server
 
 #pragma once
@@ -114,8 +114,11 @@ void handleFileCreate(){
 
 void handleSet() {
   BUSY
-  if(server.hasArg("eco")) {
-   ecoMode = server.arg("eco").toInt() == 1;
+/*  if(server.hasArg("gid")) {
+   int16_t gid = server.arg("gid").toInt() == 1;
+   for (uint8_t i = 0 i < INPUT_COUNT; i++) {
+    if (inputs[i].gid == server.arg("gid").toInt() == 1;
+   }
    server.sendHeader("Connection", "close");
    //server.sendHeader("Cache-Control", "no-store, must-revalidate");
    server.sendHeader("Refresh", "5; url=/");
@@ -123,8 +126,71 @@ void handleSet() {
    IDLE
    return;
   }
+*/
   server.send_P(500, "text/plain", PSTR("BAD ARGS"));
   IDLE
+}
+void handleHeater() {
+  BUSY
+  bool isOk = false;
+  bool isT = false;
+  float t = 20;
+  uint8_t idx = 0;
+   if
+  (server.hasArg("eco")) {
+    bool ecoNew = server.arg("eco").toInt() == 1;
+    if (ecoNew != ecoMode) {
+      ecoMode = ecoNew;
+      isOk = true;
+      switchSchedule();
+      taskDel(saveRelaysSettings);
+      taskAddWithDelay(saveRelaysSettings, AUTOSAVE_DELAY);
+    }
+   } else if
+  (server.hasArg("z1")) {
+    t = server.arg("z1").toFloat();
+    idx = ZONE1;
+    isT = true;
+    isOk = true;
+   } else if
+  (server.hasArg("z2")) {
+    t = server.arg("z2").toFloat();
+    idx = ZONE2;
+    isT = true;
+    isOk = true;
+   } else if
+  (server.hasArg("z0")) {
+    t = server.arg("z2").toFloat();
+    idx = BURNER;
+    isT = true;
+    isOk = true;
+   }
+   if (isT) {
+    if (t > T_LIMIT_MIN && t < T_LIMIT_MAX) {
+      if (IS_ECO) {
+        relays[idx].t[ECO]    = t;
+      } else if (relays[idx].isT2) {
+        relays[idx].t[NIGHT]  = t;
+      } else {
+        relays[idx].t[DAY]    = t;
+      }
+    } else {
+      isOk = false;
+    }
+   }
+   if (isOk) {
+    switchSchedule();
+    taskDel(saveRelaysSettings);
+    taskAddWithDelay(saveRelaysSettings, AUTOSAVE_DELAY);    
+    server.sendHeader("Connection", "close");
+    //server.sendHeader("Cache-Control", "no-store, must-revalidate");
+    server.sendHeader("Refresh", "5; url=/");
+    server.send_P(200, "text/plain", PSTR("OK"));
+   } else {
+    server.send_P(500, "text/plain", PSTR("BAD ARGS"));
+   }
+   IDLE
+   return;
 }
 
 void handleUpdate() {
@@ -181,7 +247,16 @@ void handleGenericFile() {
 void handlePrivate() {
   BUSY
   char data[400];
-  sprintf_P(data, PSTR("<?xml version = \"1.0\" encoding=\"UTF-8\" ?><ctrl><private><heap>%d</heap><rssi>%d</rssi><a0>%d</a0><revision>%s</revision></private></ctrl>"), ESP.getFreeHeap(), WiFi.RSSI(), analogRead(A0), REVISION);
+  sprintf_P(data, PSTR("<?xml version = \"1.0\" encoding=\"UTF-8\" ?><ctrl><private><heap>%d</heap><rssi>%d</rssi><revision>%s</revision>\
+<use>\
+<sensors>%d</sensors>\
+<lcd>%d</lcd>\
+<heater>%d</name>\
+<partners>%d</partners>\
+<ap>%d</ap>\
+<syslog>%d</syslog>\
+</use>\
+</private></ctrl>"), ESP.getFreeHeap(), WiFi.RSSI(), analogRead(A0), REVISION, use.sensors, use.lcd, use.heater, use.partners, use.ap, use.syslog);
   server.sendHeader("Connection", "close");
   server.sendHeader("Cache-Control", "no-store, must-revalidate");
   server.send(200, "text/xml", data);
@@ -509,6 +584,9 @@ uint32_t initWeb() {
   server.on("/all", HTTP_GET, handlePrivate);                     //Get internal information
   server.on("/reboot", HTTP_GET, handleReboot);                   //Reboot device
   server.on("/set", HTTP_GET, handleSet);                         //Set internal variable
+  if (use.heater) {
+    server.on("/heater", HTTP_GET, handleHeater);                         //Set heater settings
+  }
   server.on("/format", HTTP_GET, handleFormat);                   //Format FileSystem
   server.on("/delete", HTTP_GET, handleDelete);                   //Delete File
   server.on("/config", HTTP_GET, handleConfig);                   //System configuration

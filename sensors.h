@@ -23,7 +23,7 @@ struct sensor {
   int16_t       gid;
   uint16_t		  age;
 };
-OneWire oneWire(ONEWIRE_PIN);
+OneWire oneWire(PIN_ONEWIRE);
 DallasTemperature sensors(&oneWire);
 sensor sens[DEVICE_MAX_COUNT];
 /*
@@ -105,7 +105,7 @@ bool readSensors() {
     xml.processChar(c);
     if (xmlTag != "" || xmlOpen != "") {
        if 
-      (xmlOpen.endsWith("/sensor")) {
+      (xmlOpen.endsWith(F("/sensor"))) {
         if (sensorOpen) {
           i++;
         } else {
@@ -116,15 +116,15 @@ bool readSensors() {
           break;
         }
        } else if
-      (xmlTag.endsWith("/id")) {
+      (xmlTag.endsWith(F("/id"))) {
         for (uint8_t j = 0; j < 8; j++) {
           sens[i].device[j] = strtol(xmlData.substring(j*2, j*2+2).c_str(), NULL, 16);
         }
        } else if
-      (xmlTag.endsWith("/gid")) {
+      (xmlTag.endsWith(F("/gid"))) {
         sens[i].gid = xmlData.toInt();
        } else if
-      (xmlTag.endsWith("/name")) {
+      (xmlTag.endsWith(F("/name"))) {
         sens[i].name = xmlData;
        }
     }

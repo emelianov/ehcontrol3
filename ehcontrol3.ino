@@ -1,26 +1,29 @@
 //////////////////////////////////////////////////////
-// EHControl3 2016.3 (c)2016, a.m.emelianov@gmail.com
+// EHControl3 2016.4 (c)2016, a.m.emelianov@gmail.com
 //
 // ESP8266-based Home automation solution
 
-#define REVISION "2016.3.1"
+#define REVISION "2016.4"
 
 #define CFG_GLOBAL "/global.xml"
 #define CFG_SECURE "/secure.xml"
 
-#define ONEWIRE_PIN   D6  //12
+#define AUTOSAVE_DELAY 10000
+
+#define PIN_ONEWIRE   D6  //12
 
 #define AGER_INTERVAL 15
-#define AGER_EXPIRE   20
+#define AGER_EXPIRE   60
+#define AGER_MAX      30000
 #define WIFI_RETRY_DELAY 1000
 
 #define SYSTEM_PIN    0   //0 Config mode pin
 #define PIN_ACT       D4  //Net LED
 #define PIN_ALERT     D0  //16
-#define BUSY          digitalWrite(PIN_ACT, 0);
-#define IDLE          digitalWrite(PIN_ACT, 1);
-#define ALERT         digitalWrite(PIN_ALERT, LOW);
-#define NOALERT       digitalWrite(PIN_ALERT, HIGH);
+#define BUSY          gwrite(PIN_ACT, 0);
+#define IDLE          gwrite(PIN_ACT, 1);
+#define ALERT         gwrite(PIN_ALERT, LOW);
+#define NOALERT       gwrite(PIN_ALERT, HIGH);
 #define DEFAULT_NAME  "New"
 #define DEFAULT_ADMIN "admin"
 #define DEFAULT_PASS  "password3"
@@ -54,6 +57,7 @@ struct features {
   bool syslog;
 };
 features use = {false, false, false, false, false, false};
+uint16_t pinOneWire = PIN_ONEWIRE;
 
 #include <Run.h>
 #include <FS.h>
@@ -135,34 +139,37 @@ uint32_t startWiFi() {
           }
         }
        } else if 
-      (xmlTag.endsWith("/timezone")) {
+      (xmlTag.endsWith(F("/timezone"))) {
         timeZone = xmlData.toInt();
        } else if 
-      (xmlTag.endsWith("/ssid")) {
+      (xmlTag.endsWith(F("/ssid"))) {
         ssid = xmlData;
        } else if 
-      (xmlTag.endsWith("/ssidpass")) {
+      (xmlTag.endsWith(F("/ssidpass"))) {
         password = xmlData; 
        } else if 
-      (xmlTag.endsWith("/ip")) {
+      (xmlTag.endsWith(F("/ip"))) {
         ipIsOk = ip.fromString(xmlData);
        } else if 
-      (xmlTag.endsWith("/mask")) {
+      (xmlTag.endsWith(F("/mask"))) {
         mask.fromString(xmlData);
        } else if 
-      (xmlTag.endsWith("/gw")) {
+      (xmlTag.endsWith(F("/gw"))) {
         gw.fromString(xmlData);
        } else if 
-      (xmlTag.endsWith("/dns")) {
+      (xmlTag.endsWith(F("/dns"))) {
         ns.fromString(xmlData);
        } else if
-      (xmlTag.endsWith("/syslog")) {
+      (xmlTag.endsWith(F("/syslog"))) {
         sysLogServer.fromString(xmlData);
        } else if
-      (xmlTag.endsWith("/name")) {
+      (xmlTag.endsWith(F("/name"))) {
         name = xmlData;
        } else if
-      (xmlTag.endsWith("/partner") || xmlTag.endsWith("/pull")) {
+      (xmlTag.endsWith(F("/pin1wire"))) {
+        pinOneWire = xmlData.toInt();
+       } else if
+      (xmlTag.endsWith(F("/partner")) || xmlTag.endsWith(F("/pull"))) {
       	for (i = 0; i < PARTNER_MAX_COUNT; i++) {
           if (pull[i] == "") {
 			      pull[i] = xmlData;
@@ -170,7 +177,7 @@ uint32_t startWiFi() {
           }
 		    }
        } else if
-      (xmlTag.endsWith("/push")) {
+      (xmlTag.endsWith(F("/push"))) {
         for (i = 0; i < PARTNER_MAX_COUNT; i++) {
           if (push[i] == "") {
             push[i] = xmlData;
@@ -178,7 +185,7 @@ uint32_t startWiFi() {
           }
         }
        } else if
-      (xmlTag.endsWith("/allow")) {
+      (xmlTag.endsWith(F("/allow"))) {
         for (i = 0; i < PARTNER_MAX_COUNT; i++) {
           if (allow[i] == "") {
             allow[i] = xmlData;
@@ -186,19 +193,19 @@ uint32_t startWiFi() {
           }
         }
        } else if
-      (xmlTag.endsWith("/feature/sensors")) {
+      (xmlTag.endsWith(F("/feature/sensors"))) {
         use.sensors = (xmlData.toInt() == 1);
        } else if
-      (xmlTag.endsWith("/feature/lcd")) {
+      (xmlTag.endsWith(F("/feature/lcd"))) {
         use.lcd = (xmlData.toInt() == 1);
        } else if
-      (xmlTag.endsWith("/feature/heater")) {
+      (xmlTag.endsWith(F("/feature/heater"))) {
         use.heater = (xmlData.toInt() == 1);
        } else if
-      (xmlTag.endsWith("/feature/partners")) {
+      (xmlTag.endsWith(F("/feature/partners"))) {
         use.partners = (xmlData.toInt() == 1);
        } else if
-      (xmlTag.endsWith("/feature/ap")) {
+      (xmlTag.endsWith(F("/feature/ap"))) {
         use.ap = (xmlData.toInt() == 1);
        }
       xmlTag = "";
@@ -219,19 +226,19 @@ uint32_t startWiFi() {
     xml.processChar(c);
     if (xmlTag != "") {
        if 
-      (xmlTag.endsWith("/admin")) {
+      (xmlTag.endsWith(F("/admin"))) {
         adminUsername = xmlData;
        } else if 
-      (xmlTag.endsWith("/adminpass")) {
+      (xmlTag.endsWith(F("/adminpass"))) {
         adminPassword = xmlData;
        } else if 
-      (xmlTag.endsWith("/ssid")) {
+      (xmlTag.endsWith(F("/ssid"))) {
         ssid = xmlData;
        } else if 
-      (xmlTag.endsWith("/ssidpass")) {
+      (xmlTag.endsWith(F("/ssidpass"))) {
         password = xmlData;
        } else if 
-      (xmlTag.endsWith("/protect")) {
+      (xmlTag.endsWith(F("/protect"))) {
         if (!xmlData.startsWith("/")) {
           xmlData = "/" + xmlData;
         }
@@ -248,11 +255,13 @@ uint32_t startWiFi() {
   taskAdd(initMisc);
   taskAdd(initWeb);
   if (!use.ap && ssid != "" && password != "") { 
+   WiFi.mode(WIFI_OFF);
+   delay(250);
    if (ipIsOk) {
     WiFi.config(ip, gw, mask, ns);
    }
    WiFi.mode(WIFI_OFF);
-   delay(100);
+   delay(250);
    WiFi.mode(WIFI_STA);
    WiFi.begin(ssid.c_str(), password.c_str());
    taskAdd(waitWiFi);
@@ -324,7 +333,6 @@ uint32_t initMisc() {
   taskAdd(updateInputs);
   inputEvent(0, ON_ON, buttonPress);
   inputEvent(0, ON_OFF, buttonRelease);
-
   if (use.sensors) {
     taskAdd(initTSensors);
   } else {
@@ -335,8 +343,10 @@ uint32_t initMisc() {
     initRelays();
   }
   if (use.lcd) {
-    initLcd();
-    taskAdd(updateLcd);
+    if (!initLcd()) {
+      use.lcd = false;
+    }
+    //taskAdd(updateLcd);
   }
   if (use.partners) {
     taskAdd(queryPartners);
@@ -353,30 +363,35 @@ uint32_t ager() {
 
   for (i = 0; i < INPUTS_COUNT; i++) {
     if (inputs[i].gid != 0 || inputs[i].pin != -1) {
-      inputs[i].age += AGER_INTERVAL;
+      if (inputs[i].age < AGER_MAX) inputs[i].age += AGER_INTERVAL;
     }
   }
 
   for (i = 0; i < ANALOG_COUNT; i++) {
     if (analogs[i].gid != 0 || analogs[i].pin != -1) {
-      analogs[i].age += AGER_INTERVAL;
+      if (analogs[i].age < AGER_MAX) analogs[i].age += AGER_INTERVAL;
     }
   }
   if (use.sensors || use.partners) {
    for (i = 0; i < DEVICE_MAX_COUNT; i++) {
     if (sens[i].gid != 0 || memcmp(sens[i].device, zerro, sizeof(DeviceAddress)) != 0) {
-      sens[i].age += AGER_INTERVAL;
+      if (sens[i].age < AGER_MAX) sens[i].age += AGER_INTERVAL;
     }
    }
   }
 	return AGER_INTERVAL * 1000;
 }
+/*
+uint32_t monitorGw() {
+  return IP_MONITOR_DELAY;
+}
+*/
 void setup(void){
   wdt_enable(0);
   Serial.begin(74880);
-  pinMode (PIN_ACT, OUTPUT);
-  pinMode (D3, INPUT);
-  pinMode (PIN_ALERT, OUTPUT);
+  gmode (PIN_ACT, OUTPUT);
+  gmode (D3, INPUT);
+  gmode (PIN_ALERT, OUTPUT);
   IDLE
   NOALERT
   SPIFFS.begin();

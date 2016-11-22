@@ -11,7 +11,7 @@
 <ntps>192.168.30.30</ntps>
 <timezone>5</timezone>
 <partner>192.168.20.126</partner>
-<pin1wire>5</pin1wire>
+<pin1wire>12</pin1wire>
 <feature>
 <partners>1</partners>
 <lcd>1</lcd>

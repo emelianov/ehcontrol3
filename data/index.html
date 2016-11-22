@@ -74,8 +74,8 @@ if(!getAct){
      }
     }
     document.getElementById('tm').innerHTML = clk(env.time[0]._text/60);
-    document.getElementById('ecoon').className = (env.eco._text == 1)?'on':'off';
-    document.getElementById('ecooff').className = (env.eco._text == 1)?'off':'on';
+    document.getElementById('ecoon').className = (env.eco[0]._text == 1)?'on':'off';
+    document.getElementById('ecooff').className = (env.eco[0]._text == 1)?'off':'on';
     var box = document.getElementById('box');
     while (box.hasChildNodes()) box.removeChild(box.lastChild);
     box.appendChild(table);
