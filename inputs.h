@@ -20,23 +20,7 @@
 typedef void (*INcallback)();
 
 PCF857x * i2cGpio = NULL;
-// PWR/DATA Connector
-// 1 GRND
-// 2 PWR
-// 3 PWR
-// 4 0
-// 5 1
-// 6 2
-// 7 nc
-// 8 nc
-// 9 nc
-//10 nc
-//11 4
-//12 5
-//13 6
-//14 7
-//15 PWR via SW
-//16 GRND
+
 struct gpio {
   bool on;
   bool old;
@@ -143,7 +127,7 @@ bool readInputs() {
     analogs[i].onHigher   = NULL;
   }
 
-  File configFile = SPIFFS.open(CFG_INPUTS, "r");
+  File configFile = SPIFFS.open((CFG_INPUTS), "r");
   if (configFile) {
    char c;
    xml.reset();

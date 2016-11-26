@@ -1,6 +1,6 @@
 //////////////////////////////////////////////////////
 // EHControl3 2016.4 (c)2016, a.m.emelianov@gmail.com
-// Relays definitions, constants and routines
+// Heater control. Relays definitions, constants and routines
 
 #pragma once
 #include "inputs.h"
@@ -51,7 +51,8 @@ graph tGraph[TGRAPH_COUNT];
 float dTeco = DT_ECO;
 float dTday = DT_DAY;
 float dTnight = DT_NIGHT;
-float dTboiler = DT_BOILER;
+float dTburner = DT_BOILER;
+int16_t outside = -1;
 
 #define OFF(RELAY) relays[RELAY].on=false;
 #define ON(RELAY)  relays[RELAY].on=true;
@@ -83,11 +84,11 @@ void _switch() {
 }
 
 bool saveRelays() {
-   File configFile = SPIFFS.open(CFG_RELAYS, "w");
+   File configFile = SPIFFS.open(F(CFG_RELAYS), "w");
    if (configFile) {
     char buf[400];
-    sprintf_P(buf, PSTR("<?xml version = \"1.0\" ?>\n<relays>\n<eco>%d</eco>\n<dteco>%s</dteco>\n<dtday>%s</dtday><dtnight>%s</dtnight>\n<dtboiler>%s</dtboiler>\n"),
-    ecoMode, String(dTeco).c_str(), String(dTday).c_str(), String(dTnight).c_str(), String(dTboiler).c_str());
+    sprintf_P(buf, PSTR("<?xml version = \"1.0\" ?>\n<relays>\n<eco>%d</eco><outside>%d</outside>\n<dteco>%s</dteco>\n<dtday>%s</dtday><dtnight>%s</dtnight>\n<dtboiler>%s</dtboiler>\n"),
+    ecoMode, outside, String(dTeco).c_str(), String(dTday).c_str(), String(dTnight).c_str(), String(dTburner).c_str());
     configFile.write((uint8_t*)buf, strlen(buf));
     for (uint8_t i = 0; i < RELAY_COUNT; i++) {
       sprintf_P(buf, PSTR("<relay>\n<pin>%d</pin><gid>%d</gid>\n<inverse>%d</inverse><name>%s</name>\n<t0>%s</t0><t1>%s</t1><t2>%s</t2><t3>%s</t3>\n<ton>%d</ton><toff>%d</toff>\n</relay>\n"),
@@ -115,8 +116,6 @@ uint32_t saveRelaysSettings() {
   return 0;
 }
 bool readRelays() {
-  //uint8_t i;
-  //memset(relays, 0, sizeof(relays));
   for (uint8_t i = 0; i < RELAY_COUNT; i++) {
     relays[i].on    = false;
     relays[i].pin   = -1;
@@ -133,7 +132,7 @@ bool readRelays() {
     relays[i].offT2 = 360;
     relays[i].name = String(i);
   };
-  File configFile = SPIFFS.open(CFG_RELAYS, "r");
+  File configFile = SPIFFS.open(F(CFG_RELAYS), "r");
   if (configFile) {
    char c;
    xml.reset();
@@ -210,11 +209,14 @@ bool readRelays() {
       (xmlTag.endsWith(F("/dthight"))) {
         dTnight = xmlData.toFloat();
        } else if
-      (xmlTag.endsWith(F("/dtboiler"))) {
-        dTboiler = xmlData.toFloat();
+      (xmlTag.endsWith(F("/dtburner"))) {
+        dTburner = xmlData.toFloat();
        } else if
       (xmlTag.endsWith(F("/eco"))) {
         ecoMode = xmlData.toInt() == 1;
+       } else if
+      (xmlTag.endsWith(F("/outside"))) {
+        outside = xmlData.toInt();
      }
     }
      Serial.println(relays[0].pin);
@@ -248,6 +250,6 @@ void initRelays() {
  } else {
   use.heater = false;
  }
- inputEvent(ECO_IN, ON_ON,  ecoOn);
- inputEvent(ECO_IN, ON_OFF, ecoOff);
+ //inputEvent(ECO_IN, ON_ON,  ecoOn);
+ //inputEvent(ECO_IN, ON_OFF, ecoOff);
 }

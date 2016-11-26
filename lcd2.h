@@ -117,7 +117,7 @@ bool readLcd() {
   block[1].blink = false;
   block[2].type = EMPTY;
   */
-  File configFile = SPIFFS.open(CFG_LCD, "r");
+  File configFile = SPIFFS.open(F(CFG_LCD), "r");
   if (configFile) {
    char c;
    xml.reset();

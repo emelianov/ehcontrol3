@@ -1,5 +1,5 @@
 //////////////////////////////////////////////////////
-// EHControl3 2016.3 (c)2016, a.m.emelianov@gmail.com
+// EHControl3 2016.4 (c)2016, a.m.emelianov@gmail.com
 // Sensors definitions, constants and routines
 
 #pragma once
@@ -23,8 +23,8 @@ struct sensor {
   int16_t       gid;
   uint16_t		  age;
 };
-OneWire oneWire(PIN_ONEWIRE);
-DallasTemperature sensors(&oneWire);
+OneWire * oneWire;  //(PIN_ONEWIRE);
+DallasTemperature * sensors;  //(&oneWire);
 sensor sens[DEVICE_MAX_COUNT];
 /*
 String DeviceAddressToString(DeviceAddress address)
@@ -36,7 +36,7 @@ String DeviceAddressToString(DeviceAddress address)
 */
 uint32_t readTSensorsResponse();
 uint32_t readTSensors() {
-  sensors.requestTemperatures();
+  sensors->requestTemperatures();
   taskAddWithDelay(readTSensorsResponse, 250);
   return 0;  
 }
@@ -47,7 +47,7 @@ uint32_t readTSensorsResponse() {
  memset(zerro, 0, sizeof(DeviceAddress));
   for (i = 0; i < DEVICE_MAX_COUNT; i++) {
    if (memcmp(sens[i].device, zerro, sizeof(DeviceAddress)) != 0) {
-    float t = sensors.getTempC(sens[i].device);
+    float t = sensors->getTempC(sens[i].device);
     if (t !=  DEVICE_DISCONNECTED_C) {
       sens[i].tCurrent = t;
       sens[i].age = DEVICE_AGE_LOC;
@@ -65,7 +65,7 @@ extern String xmlAttrib;
 extern void XML_callback(uint8_t statusflags, char* tagName, uint16_t tagNameLen, char* data, uint16_t dataLen);
 
 bool saveSensors() {
-   File configFile = SPIFFS.open(CFG_SENSORS, "w");
+   File configFile = SPIFFS.open(F(CFG_SENSORS), "w");
    if (configFile) {
     char buf[200];
     sprintf_P(buf, PSTR("<?xml version = \"1.0\" ?>\n<sensors>\n"));
@@ -138,14 +138,16 @@ bool readSensors() {
 }
 
 uint32_t initTSensors() {
-  sensors.begin();
-  sensors.setResolution(12);
-  sensors.setWaitForConversion(false);
+  oneWire = new OneWire(pinOneWire);
+  sensors = new DallasTemperature(oneWire);
+  sensors->begin();
+  sensors->setResolution(12);
+  sensors->setWaitForConversion(false);
   if (readSensors()) {
     bool newDeviceAdded = false;
-    for (uint8_t i = 0; i < sensors.getDeviceCount(); i++) {
+    for (uint8_t i = 0; i < sensors->getDeviceCount(); i++) {
   	  DeviceAddress deviceFound;
-  	  sensors.getAddress(deviceFound, i);
+  	  sensors->getAddress(deviceFound, i);
   	  uint8_t j = 0;
   	  for (j; j < DEVICE_MAX_COUNT; j++) {
     		if (memcmp(sens[j].device, deviceFound, sizeof(DeviceAddress)) == 0) break;

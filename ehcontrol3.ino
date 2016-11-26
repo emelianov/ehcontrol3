@@ -95,7 +95,7 @@ void XML_callback(uint8_t statusflags, char* tagName, uint16_t tagNameLen, char*
 //Update time from NTP server
 uint32_t initNtp() {
   if (time(NULL) == 0) {
-    configTime(timeZone * 3600, 0, timeServer[0].c_str());
+    configTime(timeZone * 3600, 0, timeServer[0].c_str(), timeServer[1].c_str(), timeServer[2].c_str());
     return NTP_CHECK_DELAY;
   }
   return 0;
@@ -124,7 +124,7 @@ uint32_t startWiFi() {
   xml.reset();
   xmlTag = "";
   xmlOpen = "";
-  File configFile = SPIFFS.open(CFG_GLOBAL, "r");
+  File configFile = SPIFFS.open(F(CFG_GLOBAL), "r");
   if (configFile) {
    char c;
    while (configFile.read((uint8_t*)&c, 1) == 1) {
@@ -219,7 +219,7 @@ uint32_t startWiFi() {
   xml.reset();
   xmlTag = "";
   xmlOpen = "";
-  configFile = SPIFFS.open(CFG_SECURE, "r");
+  configFile = SPIFFS.open(F(CFG_SECURE), "r");
   if (configFile) {
    char c;
    while (configFile.read((uint8_t*)&c, 1) == 1) {

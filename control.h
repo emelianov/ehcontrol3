@@ -38,7 +38,7 @@
 #define T_ECO_DELTA dTeco
 #define T_DAY_DELTA dTday
 #define T_NIGHT_DELTA dTnight
-#define T_BOILER_DELTA dTboiler
+#define T_BURNER_DELTA dTburner
 
 float tIdle = 40;
 float tMax = 80;
@@ -48,14 +48,18 @@ float temps[3];
 
 uint32_t switchSchedule() {
   uint16_t minutesFromMidnight;
-  if (IS_ECO) {
-    Serial.println(relays[BURNER].t[NIGHT]);
+  if (outside > -1 && outside < DEVICE_MAX_COUNT) {
+    if (sens[outside].age > AGER_EXPIRE || sens[outside].tCurrent == DEVICE_DISCONNECTED_C) {
+      relays[BURNER].tHi = relays[BURNER].t[DAY];      
+    } else {
+      relays[BURNER].tHi = eqTemp(sens[outside].tCurrent);
+    }
+  } else if (IS_ECO) {
     relays[BURNER].tHi = relays[BURNER].t[NIGHT];
   } else {
-    Serial.println(relays[BURNER].t[DAY]);
     relays[BURNER].tHi = relays[BURNER].t[DAY];
   }
-  relays[BURNER].tLow = relays[BURNER].tHi - T_BOILER_DELTA;
+  relays[BURNER].tLow = relays[BURNER].tHi - T_BURNER_DELTA;
   tIdle = relays[BURNER].t[ECO];
   tMax = relays[BURNER].t[OTHER];
   for(uint8_t i = 1; i < RELAY_COUNT; i++) {
@@ -83,9 +87,15 @@ uint32_t switchSchedule() {
 }
 
 bool fillRelays() {
-  if (TAGE(TIN) > AGER_EXPIRE) {
+  if (TAGE(TIN) > AGER_EXPIRE || TGET(TIN) == DEVICE_DISCONNECTED_C) {
+    ALERT
+    OFF(BURNER);
+    ON(ZONE1);
+    ON(ZONE2);
+    ON(FLOOR);
     return false;
   }
+  NOALERT
   temps[TIN]    = TGET(TIN);
   temps[TZONE1]  = TGET(TZONE1);
   temps[TZONE2]  = TGET(TZONE2);
@@ -107,20 +117,21 @@ bool fillRelays() {
 }
 
 uint32_t lazyRelays() {
-  fillRelays();
-  if (TCUR(TIN) < TMAX)
-  {// If Boiler is not overheat
+  if (fillRelays()) {
+   if (TCUR(TIN) < TMAX)
+   {// If Boiler is not overheat
   	if (relays[FLOOR].isT2 || TCUR(TIN) < TIDLE || IS_ECO) {
   		OFF(FLOOR);
   	} else {
       ON(FLOOR);
     }
+   }
   }
   return 10000;
 }
 
 uint32_t switchRelays() {
-  fillRelays();
+  if (fillRelays()) {
   //OFF(BURNER);
   // Zone_1 ON/OFF
   if (SHOULD_ON(TZONE1, ZONE1))     ON (ZONE1);
@@ -161,6 +172,7 @@ uint32_t switchRelays() {
       ON(ZONE2);
       ON(FLOOR);
   }
+}
   SWITCH	//Do actual relay switching
   return 5000;   //5sec
 }
