@@ -143,9 +143,6 @@ void handleHeater() {
     if (ecoNew != ecoMode) {
       ecoMode = ecoNew;
       isOk = true;
-      switchSchedule();
-      taskDel(saveRelaysSettings);
-      taskAddWithDelay(saveRelaysSettings, AUTOSAVE_DELAY);
     }
    } else if
   (server.hasArg("z1")) {

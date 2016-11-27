@@ -1,6 +1,6 @@
 //////////////////////////////////////////////////////
 // EHControl3 2016.4 (c)2016, a.m.emelianov@gmail.com
-// Heater control 2016.2.3
+// Heater control
 
 #pragma once
  

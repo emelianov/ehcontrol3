@@ -69,11 +69,13 @@ float eqTemp(float t) { //Look t in temperature graph function and return corres
 }
 
 void _on(uint8_t i) {
-  if (relays[i].inv) {gwrite(relays[i].pin,HIGH);} else {gwrite(relays[i].pin,LOW);};
+  //if (relays[i].inv) {gwrite(relays[i].pin,HIGH);} else {gwrite(relays[i].pin,LOW);};
+  gwrite(relays[i].pin, (relays[i].inv)?HIGH:LOW);
   relays[i].on = true;
 }
 void _off(uint8_t i) { 
-  if (relays[i].inv) {gwrite(relays[i].pin,LOW);} else {gwrite(relays[i].pin,HIGH);};
+  //if (relays[i].inv) {gwrite(relays[i].pin,LOW);} else {gwrite(relays[i].pin,HIGH);};
+  gwrite(relays[i].pin, (relays[i].inv)?LOW:HIGH);
   relays[i].on=false;
 }
 void _switch() {
@@ -250,6 +252,6 @@ void initRelays() {
  } else {
   use.heater = false;
  }
- //inputEvent(ECO_IN, ON_ON,  ecoOn);
- //inputEvent(ECO_IN, ON_OFF, ecoOff);
+ inputEvent(ECO_IN, ON_ON,  ecoOn);
+ inputEvent(ECO_IN, ON_OFF, ecoOff);
 }

@@ -13,7 +13,7 @@
 #define PIN_ONEWIRE   D6  //12
 
 #define AGER_INTERVAL 15
-#define AGER_EXPIRE   60
+#define AGER_EXPIRE   90
 #define AGER_MAX      30000
 #define WIFI_RETRY_DELAY 1000
 

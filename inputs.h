@@ -239,8 +239,6 @@ void inputEvent(uint8_t i, uint8_t tp, INcallback cb) {
 
 bool initInputs() {
   bool result = readInputs();
-//  inputEvent(3, ON_ON, cbOn);
-//  inputEvent(3, ON_OFF, cbOff);
   return result;
 }
 
@@ -249,7 +247,7 @@ uint32_t updateInputs() {
 	for (i = 0; i < INPUTS_COUNT; i++) {
 		if (inputs[i].pin >= 0) {
       inputs[i].age = 0;
-			inputs[i].on = (gread(inputs[i].pin)==LOW)?true:false;
+			inputs[i].on = (gread(inputs[i].pin)==LOW);
 			if (inputs[i].on != inputs[i].old) {
 				inputs[i].old = inputs[i].on;
 				if (inputs[i].on) {
