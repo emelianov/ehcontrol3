@@ -24,7 +24,7 @@ function XmlData(x) {
 }
 var sid=0;
 var getAct=false;
-//var state, conf;
+var t_z1, t_z2;
 function getIO(s){
 s=s||'';
 //if(s != '') s=s+'&sid='+sdbm(document.getElementById('pin').value+sid)+'&';
@@ -41,6 +41,8 @@ if(!getAct){
     var conf = data.ctrl[0].config[0];
     var env = data.ctrl[0].env[0];
     document.title = env.name[0]._text;
+    t_z1 = state.relay[1].rhi[0]._text;
+    t_z2 = state.relay[2].rhi[0]._text; 
     var table = document.createElement('table');
     table.className = 'box';
     for (var i=0; i<state.sensor.length; i++) {
@@ -58,15 +60,17 @@ if(!getAct){
       if (i > 0 && i < 4) {
        td[2].innerHTML = '-';
        td[2].className = 'htune';
+       td[2].onclick = new Function('t_z' +i+ '--;getIO("/heater?z' +i+ '="+t_z' +i+ ');');
        td[4].innerHTML = '+';
        td[4].className = 'htune';
+       td[4].onclick = new Function('t_z' +i+ '++;getIO("/heater?z' +i+ '="+t_z' +i+ ');');
 //       td[5].innerHTML = '&nbsp;';
        td[6].innerHTML = clk(state.relay[i].ront[0]._text) + ' - ' + clk(state.relay[i].rofft[0]._text);
        td[6].className = (state.relay[i].rnowt[0]._text == 1)?'t2':'t1';
       }
       td[3].innerHTML = state.relay[i].rhi[0]._text + '&deg';
 //      td[7].innerHTML = '&nbsp;';
-      td[8].innerHTML = (state.relay[i].r[0]._text == 1)?'ON':'OFF';;
+      td[8].innerHTML = (state.relay[i].r[0]._text == 1)?'ON':'OFF';
       td[8].className = (state.relay[i].r[0]._text == 1)?'on':'off';
      }
      if (state.sensor[i].t[0]._text != -127 || i < 4) {
@@ -81,7 +85,7 @@ if(!getAct){
     box.appendChild(table);
   }}}
 // request.open('GET','/state?'+s+nocache,true);
- request.open('GET','/state', true);
+ request.open('GET',(s=='')?'/state':s, true);
  request.send(null);
  getAct=false;
 }
@@ -119,7 +123,7 @@ p, form,button{font-size:100%;color:#252525;}
 </head>
 <body onload='getIO("")';><form>
 <table class="box">
-<tr><td rowspan=2 class="bold" id="tm">..</td><td class="hcell">Eco mode</td><td id="ecoon" class="off">ON</td><td id="ecooff" class="on">OFF</td></tr>
+<tr><td rowspan=2 class="bold" id="tm">..</td><td class="hcell">Eco mode</td><td id="ecoon" class="off" onclick="getIO('/heater?eco=1');">ON</td><td id="ecooff" class="on"  onclick="getIO('/heater?eco=0');">OFF</td></tr>
 <tr><td class="hcell">Alarm</td><td>&nbsp;</td><td class="off">OFF</td></tr>
 </table>
 <div id="box">

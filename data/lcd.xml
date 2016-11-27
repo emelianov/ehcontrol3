@@ -2,4 +2,15 @@
 <address>63</address>
 <width>16</width>
 <height>2</height>
+<block>
+<col>0</col>
+<row>0</row>
+<type>clock</type>
+</block>
+<block>
+<col>0</col>
+<row>1</row>
+<type>temp</type>
+<value>0</value>
+</block>
 </lcd>
