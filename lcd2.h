@@ -20,7 +20,8 @@
  #define LCD_WIDTH  16
 #endif
 
-#define LCD_INTERVAL 5000
+#define LCD_INTERVAL 2000
+#define LCD_BLINK 750
 #define LCD_BLOCKS 8
 #define LCD_TEXT " --- "
 LiquidCrystal_I2C * lcd;
@@ -35,10 +36,13 @@ struct lcdBlock {
   bool blink;
 };
 lcdBlock block[LCD_BLOCKS];
+uint32_t lcdSleep = LCD_INTERVAL;
+uint32_t lcdBlink = LCD_BLINK;
 bool blinkOn = true;
 int8_t wlLevel = 0;
 uint32_t updateLcd() {
   blinkOn = !blinkOn;
+  bool isAnyBlink = false;
   for (uint8_t i = 0; i < LCD_BLOCKS || block[i].type == EMPTY; i++) {
     lcd->setCursor(block[i].col, block[i].row);
     switch (block[i].type) {
@@ -51,12 +55,20 @@ uint32_t updateLcd() {
       }
       break;
       case TEMPSENS:
-        if (!block[i].blink || (block[i].blink && blinkOn)) {
-          lcd->print((block[i].index >= DEVICE_MAX_COUNT || sens[block[i].index].tCurrent==DEVICE_DISCONNECTED_C)?" --- ":String(sens[0].tCurrent));
+        if (use.heater) {
+          block[i].blink = relays[block[i].index].on;  
+        }
+        if (use.sensors) {
+          if (!block[i].blink || (block[i].blink && blinkOn)) {
+            lcd->print((block[i].index >= DEVICE_MAX_COUNT || sens[block[i].index].tCurrent==DEVICE_DISCONNECTED_C)?" --- ":String(sens[0].tCurrent));
+          } else {
+            lcd->print(block[i].text);
+            isAnyBlink = true;
+          }
         }
       break;
       case ASIS:
-        lcd->print((block[i].index >= DEVICE_MAX_COUNT)?"":block[i].text);
+        lcd->print(block[i].text);
       break;
     }
   }
@@ -97,7 +109,7 @@ uint32_t updateLcd() {
   //lcd.print((ecoMode?"\2":" "));
   //lcd.setCursor(15,1);
   //lcd.print(digitalRead(D3)?"\2":" ");  
-  return LCD_INTERVAL;
+  return isAnyBlink?lcdBlink:lcdSleep;
 }
 
 bool readLcd() {
@@ -174,13 +186,19 @@ bool readLcd() {
         } 
        } else if
       (xmlTag.endsWith(F("/block/value")) || xmlTag.endsWith(F("/block/index"))) {
-        block[i].text  = xmlData.toInt();
+        block[i].index  = xmlData.toInt();
        } else if
       (xmlTag.endsWith(F("/block/text"))) {
         block[i].text  = xmlData;
        } else if
       (xmlTag.endsWith(F("/block/blink"))) {
         block[i].blink  = xmlData.toInt() == 1;
+       } else if
+      (xmlTag.endsWith(F("/sleeptime"))) {
+        lcdSleep  = xmlData.toInt();
+       } else if
+      (xmlTag.endsWith(F("/blinktime"))) {
+        lcdBlink  = xmlData.toInt();
        }
      }
     xmlTag = "";
