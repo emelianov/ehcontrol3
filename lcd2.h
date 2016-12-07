@@ -20,7 +20,7 @@
  #define LCD_WIDTH  16
 #endif
 
-#define LCD_INTERVAL 2000
+#define LCD_INTERVAL 4000
 #define LCD_BLINK 750
 #define LCD_BLOCKS 8
 #define LCD_TEXT " --- "
@@ -68,7 +68,13 @@ uint32_t updateLcd() {
         }
       break;
       case ASIS:
-        lcd->print(block[i].text);
+        if (!block[i].blink || (block[i].blink && blinkOn)) {
+          lcd->print(block[i].text);
+        } else {
+          for (uint8_t i = 0; i < block[i].text.length(); i++) {
+            lcd->print(" ");  
+          }
+        }
       break;
     }
   }
@@ -90,25 +96,7 @@ uint32_t updateLcd() {
     lcd->createChar(1, disp);
     lcd->setCursor(15,0);
     lcd->print("\1");
-  }
-//  lcd->setCursor(0,1);
-//  lcd->print((sens[0].tCurrent==DEVICE_DISCONNECTED_C)?" --- ":String(sens[0].tCurrent));
-//  lcd->setCursor(6,1);
-//  lcd->print((sens[1].tCurrent==DEVICE_DISCONNECTED_C)?" --- ":String(sens[1].tCurrent));
-//  lcd->setCursor(6,0);
-//  lcd->print((sens[2].tCurrent==DEVICE_DISCONNECTED_C)?" --- ":String(sens[2].tCurrent));
-//  lcd.print(" Mem: ");
-//  lcd.print(ESP.getFreeHeap());
-//  lcd.print(" RSSI: ");
-//  lcd.print(WiFi.RSSI());
-//  lcd->setCursor(12,1);
-//  for (uint8_t i=0; i < RELAY_COUNT; i++) {
-//    lcd->print(relays[i].on?"\2":" ");
-//  }
-  //lcd.print(" ");
-  //lcd.print((ecoMode?"\2":" "));
-  //lcd.setCursor(15,1);
-  //lcd.print(digitalRead(D3)?"\2":" ");  
+  }  
   return isAnyBlink?lcdBlink:lcdSleep;
 }
 
@@ -116,19 +104,7 @@ bool readLcd() {
   uint8_t address = LCD_ID;
   uint8_t width   = LCD_WIDTH;
   uint8_t height  = LCD_HEIGHT;
-
-  /*
-  block[0].col = 0;
-  block[0].row = 0;
-  block[0].type = CLOCK;
-  block[0].blink = false;
-  block[1].col = 0;
-  block[1].row = 1;
-  block[1].type = TEMPSENS;
-  block[1].index = 0;
-  block[1].blink = false;
-  block[2].type = EMPTY;
-  */
+  
   File configFile = SPIFFS.open(F(CFG_LCD), "r");
   if (configFile) {
    char c;

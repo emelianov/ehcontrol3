@@ -16,6 +16,7 @@
 #define CLICK_LONG_TIME_MAX 500
 #define ON_ON 1
 #define ON_OFF 2
+#define INPUTS_SLEEP 100
 
 typedef void (*INcallback)();
 
@@ -50,7 +51,7 @@ struct aio {
   uint16_t age;
 };
 
-
+uint32_t inputsSleep = INPUTS_SLEEP;
 gpio inputs[INPUTS_COUNT];
 aio analogs[ANALOG_COUNT];
 extern TinyXML xml;
@@ -200,6 +201,9 @@ bool readInputs() {
        } else if
       (xmlTag.endsWith(F("/i2c/base"))) {
         //Reserved
+       } else if
+      (xmlTag.endsWith(F("/sleeptime"))) {
+        inputsSleep = xmlData.toInt();
        } else {
         // Config syntax error
        }
@@ -281,7 +285,7 @@ uint32_t updateInputs() {
     analogs[i].old = analogs[i].value;
     */
   }
-  return 100;
+  return inputsSleep;
 }
  
 /*

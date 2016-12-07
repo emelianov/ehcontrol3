@@ -207,6 +207,9 @@ uint32_t startWiFi() {
        } else if
       (xmlTag.endsWith(F("/feature/ap"))) {
         use.ap = (xmlData.toInt() == 1);
+       } else if
+      (xmlTag.endsWith(F("/feature/syslog"))) {
+        //Not implemented
        }
       xmlTag = "";
       xmlData = "";
