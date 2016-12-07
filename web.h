@@ -195,7 +195,7 @@ void handleUpdate() {
       }
       BUSY
       server.sendHeader("Connection", "close");
-      server.sendHeader("Refresh", "10; url=/");
+      server.sendHeader("Refresh", "15; url=/");
       server.send(200, "text/plain", (Update.hasError())?"FAIL":"OK");
       ESP.restart();
 }

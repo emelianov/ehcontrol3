@@ -65,6 +65,9 @@ float eqTemp(float t) { //Look t in temperature graph function and return corres
   for (i = 0; i < TGRAPH_COUNT - 1 && t < tGraph[i].x; i++) {
     //Nothing
   }
+  if (i < TGRAPH_COUNT - 1) {
+    return tGraph[i-1].y + (tGraph[i-1].y - tGraph[i].y) * (tGraph[i-1].x - t)/(tGraph[i].x - tGraph[i-1].x);
+  }
   return tGraph[i].y;
 }
 
