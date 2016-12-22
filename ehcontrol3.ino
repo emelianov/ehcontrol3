@@ -1,9 +1,9 @@
 //////////////////////////////////////////////////////
-// EHControl3 2016.4 (c)2016, a.m.emelianov@gmail.com
+// EHControl3 2016.5 (c)2016, a.m.emelianov@gmail.com
 //
 // ESP8266-based Home automation solution
 
-#define REVISION "2016.4"
+#define REVISION "2016.5"
 
 #define CFG_GLOBAL "/global.xml"
 #define CFG_SECURE "/secure.xml"
@@ -55,8 +55,9 @@ struct features {
   bool partners;
   bool ap;
   bool syslog;
+  bool accel;
 };
-features use = {false, false, false, false, false, false};
+features use = {false, false, false, false, false, false, false};
 uint16_t pinOneWire = PIN_ONEWIRE;
 
 #include <Run.h>
@@ -68,6 +69,7 @@ uint16_t pinOneWire = PIN_ONEWIRE;
 #include "control.h"
 #include "relays.h"
 #include "partners.h"
+#include "accel.h"
 #include "web.h"
 
 String pull[PARTNER_MAX_COUNT];
@@ -208,8 +210,8 @@ uint32_t startWiFi() {
       (xmlTag.endsWith(F("/feature/ap"))) {
         use.ap = (xmlData.toInt() == 1);
        } else if
-      (xmlTag.endsWith(F("/feature/syslog"))) {
-        //Not implemented
+      (xmlTag.endsWith(F("/feature/accel"))) {
+        use.accel = (xmlData.toInt() == 1);
        }
       xmlTag = "";
       xmlData = "";
@@ -353,6 +355,11 @@ uint32_t initMisc() {
   }
   if (use.partners) {
     taskAdd(queryPartners);
+  }
+  if (use.accel) {
+  	if (!initAccel()) {
+  		use.accel = false;
+  	}
   }
   taskAdd(ager);
   return 0;

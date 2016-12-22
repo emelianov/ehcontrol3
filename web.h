@@ -1,5 +1,5 @@
 //////////////////////////////////////////////////////
-// EHControl3 2016.4 (c)2016, a.m.emelianov@gmail.com
+// EHControl3 2016.5 (c)2016, a.m.emelianov@gmail.com
 // HTTP-server
 
 #pragma once
@@ -256,6 +256,19 @@ void handlePrivate() {
   server.sendHeader("Connection", "close");
   server.sendHeader("Cache-Control", "no-store, must-revalidate");
   server.send(200, "text/xml", data);
+  IDLE
+}
+void handleAccel() {
+  BUSY
+  char buf[100];
+  String result = "";
+  for (uint16_t i = 0; i < accelCurrent; i++) {
+    sprintf(buf, "%d;%d;%d;%d\n", accelBuffer[i].x, accelBuffer[i].y, accelBuffer[i].z,accelBuffer[i].tm);
+    result += buf;
+  }
+  server.sendHeader("Connection", "close");
+  server.sendHeader("Cache-Control", "no-store, must-revalidate");
+  server.send(200, "text/csv", result);
   IDLE
 }
 void handleShortState() {
@@ -588,6 +601,7 @@ uint32_t initWeb() {
   server.on("/config", HTTP_GET, handleConfig);                   //System configuration
   server.on("/secure.xml", HTTP_GET, handleProtectedFile);        //Load restricted secure.xml from FS
   server.on("/weather", HTTP_GET, handleWeather);                 //For testing
+  server.on("/accel", HTTP_GET, handleAccel);                     //Accelerator bffered data
   return 0;
 }
 uint32_t handleWeb() {
