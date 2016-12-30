@@ -60,7 +60,7 @@ uint32_t updateLcd() {
         }
         if (use.sensors) {
           if (!block[i].blink || (block[i].blink && blinkOn)) {
-            lcd->print((block[i].index >= DEVICE_MAX_COUNT || sens[block[i].index].tCurrent==DEVICE_DISCONNECTED_C)?" --- ":String(sens[0].tCurrent));
+            lcd->print((block[i].index >= DEVICE_MAX_COUNT || sens[block[i].index].tCurrent==DEVICE_DISCONNECTED_C)?" --- ":String(sens[block[i].index].tCurrent));
           } else {
             lcd->print(block[i].text);
             isAnyBlink = true;
