@@ -245,6 +245,7 @@ void handlePrivate() {
   char data[400];
   sprintf_P(data, PSTR("<?xml version = \"1.0\" encoding=\"UTF-8\" ?><ctrl><private><heap>%d</heap><rssi>%d</rssi><revision>%s</revision>\
 <use>\
+<led>%d</led>\
 <sensors>%d</sensors>\
 <lcd>%d</lcd>\
 <heater>%d</heater>\
@@ -252,7 +253,7 @@ void handlePrivate() {
 <ap>%d</ap>\
 <syslog>%d</syslog>\
 </use>\
-</private></ctrl>"), ESP.getFreeHeap(), WiFi.RSSI(), REVISION, use.sensors, use.lcd, use.heater, use.partners, use.ap, use.syslog);
+</private></ctrl>"), ESP.getFreeHeap(), WiFi.RSSI(), REVISION, use.led, use.sensors, use.lcd, use.heater, use.partners, use.ap, use.syslog);
   server.sendHeader("Connection", "close");
   server.sendHeader("Cache-Control", "no-store, must-revalidate");
   server.send(200, "text/xml", data);
@@ -260,12 +261,14 @@ void handlePrivate() {
 }
 void handleAccel() {
   BUSY
-  char buf[100];
-  String result = "";
-  for (uint16_t i = 0; i < accelCurrent; i++) {
-    sprintf(buf, "%d;%d;%d;%d\n", accelBuffer[i].x, accelBuffer[i].y, accelBuffer[i].z,accelBuffer[i].tm);
+  char buf[400];
+  String result = F("<?xml version = \"1.0\" encoding=\"UTF-8\" ?><acceldata>");
+  for (uint16_t i = accelCurrent + 1; i != accelCurrent; i++) {
+    if (i >= accelCount) i = 0;
+    sprintf(buf, "<movement><time>%d</time><x>%d</x><y>%d</y><z>%d</z></movement></mode>\n", accelBuffer[i].tm,accelBuffer[i].x, accelBuffer[i].y, accelBuffer[i].z);
     result += buf;
   }
+  result += F("</acceldata>");
   server.sendHeader("Connection", "close");
   server.sendHeader("Cache-Control", "no-store, must-revalidate");
   server.send(200, "text/csv", result);

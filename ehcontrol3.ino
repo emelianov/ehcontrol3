@@ -20,8 +20,8 @@
 #define SYSTEM_PIN    0   //0 Config mode pin
 #define PIN_ACT       D4  //Net LED
 #define PIN_ALERT     D0  //16
-#define BUSY          gwrite(PIN_ACT, 0);
-#define IDLE          gwrite(PIN_ACT, 1);
+#define BUSY          if (use.led) gwrite(PIN_ACT, 0);
+#define IDLE          if (use.led) gwrite(PIN_ACT, 1);
 #define ALERT         gwrite(PIN_ALERT, LOW);
 #define NOALERT       gwrite(PIN_ALERT, HIGH);
 #define DEFAULT_NAME  "New"
@@ -49,6 +49,7 @@ String name(DEFAULT_NAME);
 String adminUsername(DEFAULT_ADMIN);
 String adminPassword(DEFAULT_PASS);
 struct features {
+  bool led;
   bool sensors;
   bool lcd;
   bool heater;
@@ -57,7 +58,7 @@ struct features {
   bool syslog;
   bool accel;
 };
-features use = {false, false, false, false, false, false, false};
+features use = {true, false, false, false, false, false, false, false};
 uint16_t pinOneWire = PIN_ONEWIRE;
 
 #include <Run.h>
@@ -194,6 +195,9 @@ uint32_t startWiFi() {
             break;
           }
         }
+       } else if
+      (xmlTag.endsWith(F("/feature/led"))) {
+        use.led = (xmlData.toInt() == 1);
        } else if
       (xmlTag.endsWith(F("/feature/sensors"))) {
         use.sensors = (xmlData.toInt() == 1);

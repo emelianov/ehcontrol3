@@ -99,7 +99,8 @@ uint32_t accelUpdate() {
   	int16_t x,y,z; 
 	accelCurrent++;
 	if (accelCurrent >= accelCount) {
-    accelFlush();
+    //accelFlush();
+    accelCurrent = 0;
 	}
 	adxl->readAccel(&x, &y, &z);
   if (abs(accelBuffer[accelCurrent-1].x - x) > accelDrift || abs(accelBuffer[accelCurrent-1].y - y) > accelDrift || abs(accelBuffer[accelCurrent-1].y - y) > accelDrift) {
@@ -120,6 +121,6 @@ bool initAccel() {
   adxl->powerOn();
   adxl->setRangeSetting(2);
   taskAdd(accelUpdate);
-  taskAddWithDelay(accelForceFlush, ACCEL_FLUSH);
+  //taskAddWithDelay(accelForceFlush, ACCEL_FLUSH);
   return true;
 }
