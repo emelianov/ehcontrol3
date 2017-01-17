@@ -259,21 +259,41 @@ void handlePrivate() {
   server.send(200, "text/xml", data);
   IDLE
 }
+
 void handleAccel() {
   BUSY
-  char buf[400];
-  String result = F("<?xml version = \"1.0\" encoding=\"UTF-8\" ?><acceldata>");
-  for (uint16_t i = accelCurrent + 1; i != accelCurrent; i++) {
-    if (i >= accelCount) i = 0;
-    sprintf(buf, "<movement><time>%d</time><x>%d</x><y>%d</y><z>%d</z></movement></mode>\n", accelBuffer[i].tm,accelBuffer[i].x, accelBuffer[i].y, accelBuffer[i].z);
-    result += buf;
-  }
-  result += F("</acceldata>");
+  char buf[400] = "<?xml version = \"1.0\" encoding=\"UTF-8\" ?><acceldata>\n";
+  uint32_t dataSent = 0;
+  uint16_t i,j;
   server.sendHeader("Connection", "close");
   server.sendHeader("Cache-Control", "no-store, must-revalidate");
-  server.send(200, "text/csv", result);
+  server.setContentLength(65535);
+  server.send(200, "text/xml", "");
+  // server.sendContent("<?xml version = \"1.0\" encoding=\"UTF-8\" ?><acceldata>");
+  server.sendContent(buf);
+  dataSent += strlen(buf);
+  for (i = accelCurrent + 1; i != accelCurrent; i++) {
+    if (i >= accelCount) i = 0;
+    sprintf_P(buf, PSTR("<movement><time>%d</time><x>%d</x><y>%d</y><z>%d</z></movement>\n"), accelBuffer[i].tm,accelBuffer[i].x, accelBuffer[i].y, accelBuffer[i].z);
+    server.sendContent(buf);
+    dataSent += strlen(buf);
+  }
+  sprintf_P(buf, PSTR("</acceldata>"));
+  server.sendContent(buf);
+  dataSent += strlen(buf);
+  memset(buf, ' ', 399);
+  buf[399] = '\0';
+  i = (65535 - dataSent) / 399;
+  j = (65535 - dataSent) - i * 399;
+  for (;i > 0 ; i--) {
+    server.sendContent(buf);
+  }
+  memset(buf, ' ', j);
+  buf[j] = '\0';
+  server.sendContent(buf);
   IDLE
 }
+
 void handleShortState() {
   BUSY
   char buf[400];
