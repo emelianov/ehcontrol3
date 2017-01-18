@@ -40,7 +40,13 @@ if(!getAct){
     var accel = data.acceldata[0];
     var table = document.createElement('table');
     table.className = 'box';
-    for (var i=0; i<state.sensor.length; i++) {
+    var timeMin = 0;
+    var timeMax = 0;
+    var mid = 0;
+    var count = 0;
+    var dtMin = 0;
+    var dtMax = 0;
+    for (var i=0; i<accel.movement.length-1; i++) {
      var tr = document.createElement('tr');
      if (!(i&1)) tr.className='odd';
      var td = [];
@@ -48,20 +54,61 @@ if(!getAct){
       td[j] = document.createElement('td');
       tr.appendChild(td[j]);
      }
-     td[0].innerHTML = accel.time[0]._text;
+     var timeCur = parseInt(accel.movement[i].time[0]._text);
+     if (timeCur != 0) {
+       if (timeCur < timeMin || timeMin == 0) timeMin = timeCur;
+       if (timeCur > timeMax || timeMax == 0) timeMax = timeCur;
+       var dtCur = Math.abs(parseInt(accel.movement[i].x[0]._text)) + Math.abs(parseInt(accel.movement[i].y[0]._text)) + Math.abs(parseInt(accel.movement[i].z[0]._text));
+       mid += dtCur;
+       count++;
+       if (dtCur < dtMin || dtMin == 0) dtMin = dtCur;
+       if (dtCur > dtMax || dtMax == 0) dtMax = dtCur;
+     }
+if (timeCur != 0) {
+     td[0].innerHTML = clk(accel.movement[i].time[0]._text % 86400 / 60);
      td[0].className = 'left';
-     td[0].innerHTML = accel.x[0]._text;
-     td[0].className = 'left';
-     td[0].innerHTML = accel.y[0]._text;
-     td[0].className = 'left';
-     td[0].innerHTML = accel.z[0]._text;
-     td[0].className = 'left';
+     td[1].innerHTML = accel.movement[i].x[0]._text;
+     td[1].className = 'left';
+     td[2].innerHTML = accel.movement[i].y[0]._text;
+     td[2].className = 'left';
+     td[3].innerHTML = accel.movement[i].z[0]._text;
+     td[3].className = 'left';
      table.appendChild(tr);
+}
     }
 //    document.getElementById('tm').innerHTML=clk(env.time[0]._text/60);
 	var box = document.getElementById('box');
     while (box.hasChildNodes()) box.removeChild(box.lastChild);
     box.appendChild(table);
+var a_canvas = document.getElementById("gr");
+var context = a_canvas.getContext("2d");
+context.fillStyle = "yellow";
+context.beginPath();
+context.moveTo(0,300);
+context.lineTo(1200,300);
+context.stroke();
+context.beginPath();
+context.moveTo(0, 300);
+var scale = 1200 / (timeMax - timeMin);
+mid = mid / count;
+var dtScale = 1200 / (dtMax - dtMin - 2*mid);
+var tmPre = (parseInt(accel.movement[0].time[0]._text) - timeMin) * scale;
+for (var i=0; i<accel.movement.length-1; i++) {
+  if (parseInt(accel.movement[i].time[0]._text) != 0) {
+    dt = Math.abs(parseInt(accel.movement[i].x[0]._text)) + Math.abs(parseInt(accel.movement[i].y[0]._text)) + Math.abs(parseInt(accel.movement[i].z[0]._text)) - mid;
+    tm = (parseInt(accel.movement[i].time[0]._text) - timeMin) * scale;
+  if (tm - tmPre > 10) {
+    context.lineTo(tmPre, 300);
+    context.lineTo(tm, 300);
+  }
+tmPre = tm;
+  context.lineTo(tm, 300 + dt * dtScale);
+  }
+}
+//  context.closePath();
+//  context.fill();
+  context.lineWidth = 1;
+  context.stroke();
   }}}
 // request.open('GET','/state?'+s+nocache,true);
  request.open('GET','/accel', true);
@@ -107,5 +154,8 @@ p, form,button{font-size:100%;color:#252525;}
 </table>
 <div id="box">
 </div>
+<canvas id="gr" width="1200" height="600">
+ This text is displayed if your browser does not support HTML5 Canvas.
+</canvas>
 </form></body>
 </html>
