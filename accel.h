@@ -10,13 +10,11 @@
 #define ACCEL_SLEEP 100
 #define ACCEL_BUFFER 600
 #define ACCEL_DRIFT 2
-#define ACCEL_FLUSH 3600000UL
-#define ACCEL_FILE "/accel.csv"
 struct accelXYZ {
-int16_t x;
-int16_t y;
-int16_t z;
-time_t tm;
+ int16_t x;
+ int16_t y;
+ int16_t z;
+ time_t tm;
 };
 ADXL345 * adxl;
 uint32_t accelSleep	= ACCEL_SLEEP;
@@ -24,7 +22,6 @@ accelXYZ accelBuffer[ACCEL_BUFFER];
 uint16_t accelCount = ACCEL_BUFFER;
 uint16_t accelCurrent = 0;
 uint8_t accelDrift = ACCEL_DRIFT;
-String filename = ACCEL_FILE;
 
 bool readAccel() {
   File configFile = SPIFFS.open(F(CFG_LCD), "r");
@@ -40,9 +37,6 @@ bool readAccel() {
        if 
       (xmlTag.endsWith(F("/drift"))) {
         accelDrift  = xmlData.toInt();
-       } else if
-      (xmlTag.endsWith(F("/filename"))) {
-        filename  = xmlData;
        } else if
       (xmlTag.endsWith(F("/sleeptime"))) {
         accelSleep  = xmlData.toInt();
@@ -67,39 +61,10 @@ bool readAccel() {
   return true;  
 }
 
-bool accelFlush() {
-    char buf[100];
-    bool result = true;
-    File accelFile = SPIFFS.open(filename, "a");
-    uint16_t j = (accelCurrent >= accelCount)?accelCount-1:accelCurrent-1;
-    if (accelFile) {
-     for (uint16_t i = 0; i < j; i++) {
-      sprintf(buf, "%d;%d;%d;%d\n", accelBuffer[i].x, accelBuffer[i].y, accelBuffer[i].z, accelBuffer[i].tm);
-      if (!accelFile.write((uint8_t*)buf, strlen(buf))) {
-        ALERT
-        result = false;
-      }
-     }
-     accelFile.close();
-    } else {
-      result = false;
-    }
-    accelBuffer[0].x = accelBuffer[j+1].x;
-    accelBuffer[0].y = accelBuffer[j+1].y;
-    accelBuffer[0].z = accelBuffer[j+1].z;
-    accelBuffer[0].tm = accelBuffer[j+1].tm;
-    accelCurrent = 0;
-    return result;
-}
-uint32_t accelForceFlush() {
-  accelFlush();
-  return ACCEL_FLUSH;
-}
 uint32_t accelUpdate() {
   	int16_t x,y,z; 
 	accelCurrent++;
 	if (accelCurrent >= accelCount) {
-    //accelFlush();
     accelCurrent = 0;
 	}
 	adxl->readAccel(&x, &y, &z);
@@ -121,6 +86,5 @@ bool initAccel() {
   adxl->powerOn();
   adxl->setRangeSetting(2);
   taskAdd(accelUpdate);
-  //taskAddWithDelay(accelForceFlush, ACCEL_FLUSH);
   return true;
 }
