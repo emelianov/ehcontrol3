@@ -53,6 +53,9 @@ uint32_t switchSchedule() {
       relays[BURNER].tHi = relays[BURNER].t[DAY];      
     } else {
       relays[BURNER].tHi = eqTemp(sens[outside].tCurrent);
+      if (IS_ECO) {
+        relays[BURNER].tHi =- tGraphEco;
+      }
     }
   } else if (IS_ECO) {
     relays[BURNER].tHi = relays[BURNER].t[NIGHT];

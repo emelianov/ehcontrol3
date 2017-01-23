@@ -15,6 +15,8 @@
 
 #define ECO_IN 1
 
+#define TGRAPH_ECO 10
+
 #define DT_ECO 1.5
 #define DT_DAY 0.5
 #define DT_NIGHT 1.0
@@ -48,6 +50,7 @@ struct graph {
 
 relay relays[RELAY_COUNT];
 graph tGraph[TGRAPH_COUNT];
+float tGraphEco = TGRAPH_ECO;
 float dTeco = DT_ECO;
 float dTday = DT_DAY;
 float dTnight = DT_NIGHT;
@@ -204,6 +207,9 @@ bool readRelays() {
        } else if
       (xmlTag.endsWith(F("/t/h"))) {
         tGraph[j].y = xmlData.toFloat();
+       } else if
+      (xmlTag.endsWith(F("/ecoshift"))) {
+        tGraphEco = xmlData.toFloat();
        } else if
       (xmlTag.endsWith(F("/dteco"))) {
         dTeco = xmlData.toFloat();
