@@ -58,7 +58,14 @@ struct features {
   bool syslog;
   bool accel;
 };
-features use = {true, false, false, false, false, false, false, false};
+struct flags {
+  bool config;
+  bool network;
+  bool ntp;
+  bool webServer;
+};
+features use = { true, false, false, false, false, false, false, false };
+flags done = { false, false, false, false };
 uint16_t pinOneWire = PIN_ONEWIRE;
 
 #include <Run.h>
@@ -101,6 +108,7 @@ uint32_t initNtp() {
     configTime(timeZone * 3600, 0, timeServer[0].c_str(), timeServer[1].c_str(), timeServer[2].c_str());
     return NTP_CHECK_DELAY;
   }
+  done.ntp = true;;
   return 0;
 }
 
@@ -416,7 +424,7 @@ void setup(void){
   //taskAdd(ager);
 } 
 void loop(void){
-  TASKEXEC
+  taskExec();
   wdt_reset();
   yield();
 } 

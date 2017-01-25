@@ -108,7 +108,7 @@ bool fillRelays() {
     return true;
    } else if 
   (TAGE(TZONE2) > AGER_EXPIRE && TAGE(TZONE1) <= AGER_EXPIRE) {
-    temps[TZONE1] = TGET(ZONE2);
+    temps[TZONE2] = TGET(ZONE1);
     return true;
   }
   temps[TZONE1] = 20;
