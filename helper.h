@@ -3,79 +3,11 @@
 //
 // ESP8266-based Home automation solution
 
-#define REVISION "2016.7"
-
 #define CFG_GLOBAL "/global.xml"
 #define CFG_SECURE "/secure.xml"
-
-#define AUTOSAVE_DELAY 10000
-
-#define PIN_ONEWIRE   D6  //12
-
-#define AGER_INTERVAL 15
-#define AGER_EXPIRE   90
-#define AGER_MAX      30000
-#define WIFI_RETRY_DELAY 1000
-
-#define SYSTEM_PIN    0   //0 Config mode pin
-#define PIN_ACT       D4  //Net LED
-#define PIN_ALERT     D0  //16
-#define BUSY          if (use.led) gwrite(PIN_ACT, 0);
-#define IDLE          if (use.led) gwrite(PIN_ACT, 1);
-#define ALERT         gwrite(PIN_ALERT, LOW);
-#define NOALERT       gwrite(PIN_ALERT, HIGH);
-#define DEFAULT_NAME  "New"
-#define DEFAULT_ADMIN "admin"
-#define DEFAULT_PASS  "password3"
-
-#include <ESP8266WiFi.h>
-#include <WiFiClient.h>
-#include <WiFiUdp.h>
-#include <time.h>
-
-//Syslog settings
-#define UDP_PORT 33666
-IPAddress sysLogServer(192, 168, 30, 30); // SysLog server
-//NTP settings
-#define NTP_CHECK_DELAY 300000;
-#define NTP_MAX_COUNT 3
-//WiFiUDP udp;
-String timeServer[NTP_MAX_COUNT];         // NTP servers
-int8_t timeZone = 0;
-//Controller settings
-#define SSID_MAX_LENGTH 16
-#define PASS_MAX_LENGTH 24
-String name(DEFAULT_NAME);
-String adminUsername(DEFAULT_ADMIN);
-String adminPassword(DEFAULT_PASS);
-struct features {
-  bool led;
-  bool sensors;
-  bool lcd;
-  bool heater;
-  bool partners;
-  bool ap;
-  bool syslog;
-  bool accel;
-};
-features use = {true, false, false, false, false, false, false, false};
-uint16_t pinOneWire = PIN_ONEWIRE;
-
 #include <Run.h>
 #include <FS.h>
 #include <TinyXML.h>
-#include "lcd2.h"
-#include "sensors.h"
-#include "inputs.h"
-#include "control.h"
-#include "relays.h"
-#include "partners.h"
-#include "accel.h"
-#include "web.h"
-
-String pull[PARTNER_MAX_COUNT];
-String push[PARTNER_MAX_COUNT];
-String allow[PARTNER_MAX_COUNT];
 
 //XML processor settings
 String xmlOpen;
@@ -95,39 +27,18 @@ void XML_callback(uint8_t statusflags, char* tagName, uint16_t tagNameLen, char*
   }
 }
 
-//Update time from NTP server
-uint32_t initNtp() {
-  if (time(NULL) == 0) {
-    configTime(timeZone * 3600, 0, timeServer[0].c_str(), timeServer[1].c_str(), timeServer[2].c_str());
-    return NTP_CHECK_DELAY;
-  }
-  return 0;
-}
+typedef void (*callback)(String value);
+struct cfgLine {
+  String entry;
+  callback cb;
+};
 
-//Read global config and start network
-uint32_t startWiFi() {
-  BUSY
-  String ssid("");
-  String password("");
-  IPAddress ip(192, 168, 20, 124);             // IP
-  IPAddress mask(255, 255, 255, 0);            // MASK
-  IPAddress gw(192, 168, 20, 2);               // GW
-  IPAddress ns(192, 168, 20, 2);               // DNS
-  bool ipIsOk = false;
-  uint8_t i;
-  for (i = 0; i < NTP_MAX_COUNT; i++) {
-    timeServer[i] = "";
-  }
-  for (i = 0; i < PARTNER_MAX_COUNT; i++) {
-  	pull[i] = "";
-    push[i] = "";
-    allow[i] = "";
-  }
-//Read global config options
+cfgLine cfgs[] = {"123",[](String _s){String s=_s;},"123",[](String _s){String s=_s;}};
+bool cfgParse(String cfgName) {
   xml.reset();
   xmlTag = "";
   xmlOpen = "";
-  File configFile = SPIFFS.open(F(CFG_GLOBAL), "r");
+  File configFile = SPIFFS.open(cfgName, "r");
   if (configFile) {
    char c;
    while (configFile.read((uint8_t*)&c, 1) == 1) {
@@ -400,37 +311,7 @@ uint32_t monitorGw() {
   return IP_MONITOR_DELAY;
 }
 */
-
-
-uint8_t s;
-typedef void (*callback)(String value);
-class CfgEntry {
-  public:
-  String entry;
-  callback cb;
-  uint8_t* i8;
-  uint16_t* i16;
-  float* fl;
-  CfgEntry(String s) {
-    entry = s;
-    i8 = NULL;
-    i16 = NULL;
-    fl = NULL;
-    cb = NULL;
-  }
-  CfgEntry(String s, callback c) : CfgEntry(s) {
-    cb = c;
-  }
-  bool got(String s) {
-    return true;
-  }
-};
-
-CfgEntry* f;
-
 void setup(void){
-f = new CfgEntry("123", [](String _s){String s=_s;});
-
   wdt_enable(0);
   Serial.begin(74880);
   gmode (PIN_ACT, OUTPUT);
