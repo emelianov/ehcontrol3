@@ -261,6 +261,6 @@ void initRelays() {
  } else {
   use.heater = false;
  }
- inputEvent(ECO_IN, ON_ON,  ecoOn);
- inputEvent(ECO_IN, ON_OFF, ecoOff);
+// inputEvent(ECO_IN, ON_ON,  ecoOn);
+// inputEvent(ECO_IN, ON_OFF, ecoOff);
 }

@@ -16,12 +16,13 @@ int16_t lookSensorByGid(uint16_t gid) {
 	for (i = 0; i < DEVICE_MAX_COUNT && sens[i].gid != gid; i++) { }
 	return (i >= DEVICE_MAX_COUNT)?-1:i; 
 }
+/*
 int16_t lookInputByGid(uint16_t gid) {
   uint8_t i;
   for (i = 0; i < INPUTS_COUNT && inputs[i].gid != gid; i++) { }
   return (i >= INPUTS_COUNT)?-1:i;   
 }
-
+*/
 uint8_t currentPartner = 0;
 extern TinyXML xml;
 extern String xmlOpen;

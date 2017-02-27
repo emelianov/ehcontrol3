@@ -57,8 +57,36 @@ struct features {
   bool ap;
   bool syslog;
   bool accel;
+  bool bmp;
 };
-features use = {true, false, false, false, false, false, false, false};
+features use = {true, false, false, false, false, false, false, false, false};
+
+struct events {
+  uint16_t webStart;
+  uint16_t adxl;
+  uint16_t tap;
+  uint16_t doubleTap;
+};
+events event = {0, 0, 0};
+
+class Item {
+  public:
+  String    name;
+  float     current;
+  uint16_t  gid;
+  uint16_t  age;
+  uint16_t  signal;
+  Item() {
+    name    = "";
+    current = 0;
+    gid     = 0;
+    age     = 0;
+    signal  = 0;
+  }
+};
+#define MAX_ITEMS 32
+Item* item[MAX_ITEMS] = {NULL};
+
 uint16_t pinOneWire = PIN_ONEWIRE;
 
 #include <Run.h>
@@ -71,29 +99,12 @@ uint16_t pinOneWire = PIN_ONEWIRE;
 #include "relays.h"
 #include "partners.h"
 #include "accel.h"
+#include "bmp280.h"
 #include "web.h"
 
 String pull[PARTNER_MAX_COUNT];
 String push[PARTNER_MAX_COUNT];
 String allow[PARTNER_MAX_COUNT];
-
-//XML processor settings
-String xmlOpen;
-String xmlTag;
-String xmlData;
-String xmlAttrib;
-TinyXML xml;
-uint8_t buffer[150];
-void XML_callback(uint8_t statusflags, char* tagName, uint16_t tagNameLen, char* data, uint16_t dataLen) {
-  if
-  (statusflags & STATUS_TAG_TEXT) {
-    xmlTag = String(tagName);
-    xmlData = String(data);
-  } else if
-  (statusflags & STATUS_START_TAG) {
-    xmlOpen = String(tagName);
-  }
-}
 
 //Update time from NTP server
 uint32_t initNtp() {
@@ -216,6 +227,9 @@ uint32_t startWiFi() {
        } else if
       (xmlTag.endsWith(F("/feature/accel"))) {
         use.accel = (xmlData.toInt() == 1);
+       } else if
+      (xmlTag.endsWith(F("/feature/bmp"))) {
+        use.bmp = (xmlData.toInt() == 1);
        }
       xmlTag = "";
       xmlData = "";
@@ -280,7 +294,7 @@ uint32_t startWiFi() {
    WiFi.mode(WIFI_AP);
    WiFi.begin();
    taskAddWithDelay(startWeb, 2000);
-   taskAdd(buttonLongPressLedOn);
+//   taskAdd(buttonLongPressLedOn);
    IDLE
    return 0;
   }
@@ -312,6 +326,7 @@ uint32_t startWiFiAP() {
    taskAddWithDelay(startWeb, 2000);
    return 0;
 }
+/*
 uint32_t buttonLongPress() {
   ALERT
   taskAddWithDelay(buttonLongPressLedOff, LONGPRESSLEDON);
@@ -335,13 +350,22 @@ void buttonPress() {
 void buttonRelease() {
   taskDel(buttonLongPress);
 }
-
+*/
+bool tapBlinkState = false;
+uint32_t tapOn() {
+    ALERT
+  return RUN_NEVER;
+}
+uint32_t tapOff() {
+    NOALERT
+  return RUN_NEVER;
+}
 uint32_t initMisc() {
   initInputs();
-  defaultInput(0); //Override input at position 0 to NodeMCU button
-  taskAdd(updateInputs);
-  inputEvent(0, ON_ON, buttonPress);
-  inputEvent(0, ON_OFF, buttonRelease);
+//  defaultInput(0); //Override input at position 0 to NodeMCU button
+//  taskAdd(updateInputs);
+//  inputEvent(0, ON_ON, buttonPress);
+//  inputEvent(0, ON_OFF, buttonRelease);
   if (use.sensors) {
     taskAdd(initTSensors);
   } else {
@@ -364,6 +388,13 @@ uint32_t initMisc() {
   	if (!initAccel()) {
   		use.accel = false;
   	}
+   taskAddWithSemaphore(tapOn, &(event.tap));
+   taskAddWithSemaphore(tapOff, &(event.doubleTap));
+  }
+  if (use.bmp) {
+    if (!bmpInit()) {
+      use.bmp = false;
+   }
   }
   taskAdd(ager);
   return 0;
@@ -374,7 +405,7 @@ uint32_t ager() {
   uint8_t i;
   DeviceAddress zerro;
   memset(zerro, 0, sizeof(DeviceAddress));
-
+/*
   for (i = 0; i < INPUTS_COUNT; i++) {
     if (inputs[i].gid != 0 || inputs[i].pin != -1) {
       if (inputs[i].age < AGER_MAX) inputs[i].age += AGER_INTERVAL;
@@ -386,6 +417,7 @@ uint32_t ager() {
       if (analogs[i].age < AGER_MAX) analogs[i].age += AGER_INTERVAL;
     }
   }
+*/
   if (use.sensors || use.partners) {
    for (i = 0; i < DEVICE_MAX_COUNT; i++) {
     if (sens[i].gid != 0 || memcmp(sens[i].device, zerro, sizeof(DeviceAddress)) != 0) {
@@ -401,36 +433,7 @@ uint32_t monitorGw() {
 }
 */
 
-
-uint8_t s;
-typedef void (*callback)(String value);
-class CfgEntry {
-  public:
-  String entry;
-  callback cb;
-  uint8_t* i8;
-  uint16_t* i16;
-  float* fl;
-  CfgEntry(String s) {
-    entry = s;
-    i8 = NULL;
-    i16 = NULL;
-    fl = NULL;
-    cb = NULL;
-  }
-  CfgEntry(String s, callback c) : CfgEntry(s) {
-    cb = c;
-  }
-  bool got(String s) {
-    return true;
-  }
-};
-
-CfgEntry* f;
-
 void setup(void){
-f = new CfgEntry("123", [](String _s){String s=_s;});
-
   wdt_enable(0);
   Serial.begin(74880);
   gmode (PIN_ACT, OUTPUT);

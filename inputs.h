@@ -4,57 +4,21 @@
 
 #pragma once
 #include <pcf8574_esp.h>
+#include "helper.h"
 
 #define I2C_OFFSET 100
-#define INPUTS_COUNT 16
-#define ANALOG_COUNT 4
 #define CFG_INPUTS "/inputs.xml"
 //Min & Max times of signal is changed to detect as click event
 #define CLICK_TIME_MIN 100
 #define CLICK_TIME_MAX 150
 //Max time to detect signal change as long click event 
 #define CLICK_LONG_TIME_MAX 500
-#define ON_ON 1
-#define ON_OFF 2
 #define INPUTS_SLEEP 100
 
-typedef void (*INcallback)();
-
 PCF857x * i2cGpio = NULL;
-
-struct gpio {
-  bool on;
-  bool old;
-  int16_t pin;
-  bool inv;
-  uint16_t gid;
-  String name;
-  INcallback onOn;
-  INcallback onOff;
-  INcallback onClick;		//Not implemented
-  INcallback onLongClick;	//Not implemented
-  uint16_t age;
-};
-struct aio {
-  bool on;
-  int16_t pin;
-  bool inv;
-  uint16_t gid;
-  String name;
-  int16_t value;
-  int16_t old;
-  int16_t highMark;
-  int16_t lowMark;
-  INcallback onLower;
-  INcallback onWithin;
-  INcallback onHigher;
-  uint16_t age;
-};
-
-uint32_t inputsSleep = INPUTS_SLEEP;
-gpio inputs[INPUTS_COUNT];
-aio analogs[ANALOG_COUNT];
-extern TinyXML xml;
+uint8_t i2cAddr = 0;
+uint8_t i2cBase = 0;
+uint32_t i2cSleep = INPUTS_SLEEP;
 uint8_t gread(uint8_t pin) {
   if (pin >= I2C_OFFSET) {
     return i2cGpio->read(pin - I2C_OFFSET);
@@ -84,134 +48,71 @@ void gmode(uint8_t pin, uint8_t mode) {
     pinMode(pin, mode);
   }
 }
+struct inputCfg {
+  uint16_t gid;
+  uint16_t index;
+  String name;
+  uint16_t pin;
+};
+#define INPUT_MAX 16
+typedef void (*cb)();
+uint16_t* gpsig[INPUT_MAX];
+cb gpintr[INPUT_MAX] = { [](){*gpsig[0]++;},
+                            [](){*gpsig[1]++;},
+                            [](){*gpsig[2]++;},
+                            [](){*gpsig[3]++;},
+                            [](){*gpsig[4]++;},
+                            [](){*gpsig[5]++;}
+};
 
-void defaultInput(uint8_t i) {
-    inputs[i].name        = "Default";
-    inputs[i].onClick     = NULL;
-    inputs[i].onLongClick = NULL;
-    inputs[i].onOff       = NULL;
-    inputs[i].onOn        = NULL;
-    inputs[i].pin         = SYSTEM_PIN;
-    inputs[i].age         = DEVICE_AGE_DEF;
-    inputs[i].gid         = 0;
-    inputs[i].old         = false;
-    inputs[i].on          = false;
-    inputs[i].inv         = false;
-}
 bool readInputs() {
-  int8_t i;
-
-  for (i = 0; i < INPUTS_COUNT; i++) {
-    inputs[i].name = "";
-    inputs[i].onClick     = NULL;
-    inputs[i].onLongClick = NULL;
-    inputs[i].onOff       = NULL;
-    inputs[i].onOn        = NULL;
-    inputs[i].pin         = -1;
-    inputs[i].age         = DEVICE_AGE_DEF;
-    inputs[i].gid         = 0;
-    inputs[i].old         = false;
-    inputs[i].on          = false;
-    inputs[i].inv         = false;
-  };
-  for (i = 0; i < ANALOG_COUNT; i++) {
-    analogs[i].name       = "";
-    analogs[i].value      = 0;
-    analogs[i].pin        = -1;
-    analogs[i].gid        = 0;
-    analogs[i].age        = DEVICE_AGE_DEF;
-    analogs[i].old        = 0;
-    analogs[i].highMark   = 0;
-    analogs[i].lowMark    = 0;
-    analogs[i].onLower    = NULL;
-    analogs[i].onWithin   = NULL;
-    analogs[i].onHigher   = NULL;
-  }
-
-  File configFile = SPIFFS.open((CFG_INPUTS), "r");
-  if (configFile) {
-   char c;
-   xml.reset();
-   xmlTag = "";
-   xmlOpen = "";
-   i = 0;
-   int8_t j = 0;
-   bool inputOpen = false;
-   bool analogOpen = false;
-   uint8_t i2cAddr = 0;
    uint8_t i2cInit = 0;
-   while (configFile.read((uint8_t*)&c, 1) == 1) {
-    xml.processChar(c);
-    if (xmlTag != "" || xmlOpen != "") {
-       if 
-      (xmlOpen.endsWith("/input")) {
-        if (i < INPUTS_COUNT - 1) {
-          if (inputOpen) {
-            i++;
-          } else {
-            inputOpen = true;
-          }
-        } else {
-          //Config error
-        }
-       } else if
-      (xmlOpen.endsWith("/analog")) {
-        if (j < ANALOG_COUNT - 1) {
-          if (analogOpen) {
-            j++;
-          } else {
-            analogOpen = true;
-          }
-        } else {
-          //Config error
-        }
-       } else if
-      (xmlTag.endsWith(F("/analog/pin"))) {
-         analogs[j].pin = 1;
-       } else if
-      (xmlTag.endsWith(F("/input/pin"))) {
-         inputs[i].pin = xmlData.toInt();
-       } else if
-      (xmlTag.endsWith(F("/analog/gid"))) {
-        analogs[j].gid = xmlData.toInt();
-       } else if
-      (xmlTag.endsWith(F("/input/gid"))) {
-        inputs[i].gid = xmlData.toInt();
-       } else if
-      (xmlTag.endsWith(F("/analog/name"))) {
-        analogs[j].name = xmlData;
-       } else if
-      (xmlTag.endsWith(F("/input/name"))) {
-        inputs[i].name = xmlData;
-       } else if
-      (xmlTag.endsWith(F("/analog/low"))) {
-        analogs[j].lowMark = xmlData.toInt();
-       } else if
-      (xmlTag.endsWith(F("/analog/high"))) {
-        analogs[j].highMark = xmlData.toInt();
-       } else if
-      (xmlTag.endsWith(F("/input/inverse"))) {
-        inputs[i].inv = (xmlData.toInt() == 1);
-       } else if
-      (xmlTag.endsWith(F("/i2c/address"))) {
-        i2cAddr = xmlData.toInt();
-       } else if
-      (xmlTag.endsWith(F("/i2c/init"))) {
-        i2cInit = xmlData.toInt();
-       } else if
-      (xmlTag.endsWith(F("/i2c/base"))) {
-        //Reserved
-       } else if
-      (xmlTag.endsWith(F("/sleeptime"))) {
-        inputsSleep = xmlData.toInt();
-       } else {
-        // Config syntax error
-       }
+  inputCfg inps[INPUT_MAX];
+  for (uint8_t i = 0; i < INPUT_MAX; i++) {
+    inps[i].gid = 0;
+    inps[i].index = 0xFFFF;
+    inps[i].name = "";
+    inps[i].pin = 0;
+  }
+  inps[0].pin = D0;
+  inps[1].pin = D3;
+  inps[2].pin = D5;
+  inps[3].pin = D6;
+  inps[4].pin = D7;
+  inps[5].pin = D8;
+  CfgEntry cfg[] = {CfgEntry("/D0/gid",   &inps[0].gid),
+                    CfgEntry("/D0/index",  &inps[0].index),
+                    CfgEntry("/D0/name",  &inps[1].name),
+                    CfgEntry("/D3/gid",   &inps[1].gid),
+                    CfgEntry("/D3/index",  &inps[1].index),
+                    CfgEntry("/D3/name",  &inps[1].name),
+                    CfgEntry("/D5/gid",   &inps[2].gid),
+                    CfgEntry("/D5/index",  &inps[2].index),
+                    CfgEntry("/D5/name",  &inps[2].name),
+                    CfgEntry("/D6/gid",   &inps[3].gid),
+                    CfgEntry("/D6/index",  &inps[3].index),
+                    CfgEntry("/D6/name",  &inps[3].name),
+                    CfgEntry("/D7/gid",   &inps[4].gid),
+                    CfgEntry("/D7/index",  &inps[4].index),
+                    CfgEntry("/D7/name",  &inps[4].name),
+                    CfgEntry("/D8/gid",   &inps[5].gid),
+                    CfgEntry("/D8/index",  &inps[5].index),
+                    CfgEntry("/D8/name",  &inps[5].name),
+                    CfgEntry("/i2c/addr",  &i2cAddr),
+                    CfgEntry("/i2c/init",  &i2cInit),
+                    CfgEntry("/i2c/addr",  &i2cBase),
+                    CfgEntry("/sleeptime",  &i2cSleep)
+                   };
+  if (!cfgParse(CFG_INPUTS, cfg, sizeof(cfg)/sizeof(cfg[0]))) {
+    return false;
+  }
+  for (uint8_t i = 0; i < INPUT_MAX; i++) {
+    if (inps[i].index != 0xFFFF) {
+      gmode(inps[i].pin, OUTPUT);
+      attachInterrupt(inps[i].pin, gpintr[i], RISING);
+      gpsig[i] = &item[inps[i].index]->signal;
     }
-    xmlTag = "";
-    xmlOpen = "";
-   }
-   configFile.close();
+  }
    if (i2cAddr > 0) {
     Wire.begin();
     i2cGpio = new PCF857x(i2cAddr, &Wire);
@@ -220,32 +121,12 @@ bool readInputs() {
    }
    return true;
   }
-  return false;  
-}
-
-void cbOn() {
-  NOALERT
-}
-void cbOff() {
-  ALERT
-}
-void inputEvent(uint8_t i, uint8_t tp, INcallback cb) {
-  switch (tp) {
-    case ON_ON:
-      inputs[i].onOn = cb;
-    break;
-    case ON_OFF:
-       inputs[i].onOff = cb;
-    break;
-  }
-}
-
 
 bool initInputs() {
   bool result = readInputs();
   return result;
 }
-
+/*
 uint32_t updateInputs() {
   uint8_t i;
 	for (i = 0; i < INPUTS_COUNT; i++) {
@@ -284,37 +165,7 @@ uint32_t updateInputs() {
     }
     analogs[i].old = analogs[i].value;
     */
-  }
-  return inputsSleep;
-}
- 
-/*
-bool saveInputs() {
-   File configFile = SPIFFS.open(CFG_INPUTS, "w");
-   if (configFile) {
-    char buf[200];
-    sprintf_P(buf, PSTR("<?xml version = \"1.0\" ?>\n<relays>\n"));
-    configFile.write((uint8_t*)buf, strlen(buf));
-    for (uint8_t i = 0; i < RELAY_COUNT; i++) {
-      sprintf_P(buf, PSTR("<relay>\n<pin></pin><gid>%d</gid>\n<inverse>%d</inverse><name>%s</name><t0>%s</t0><t1>%s</t1><t2>%s</t2><t3>%s</t3></relay>\n<ton>%d</ton><toff>%d</toff>\n</relay>\n"),
-                 relays[i].pin, relays[i].gid, relays[i].inv, relays[i].name.c_str(),
-                 String(relays[i].t[0]).c_str(), String(relays[i].t[1]).c_str(), String(relays[i].t[2]).c_str(), String(relays[i].t[3]).c_str(),
-                 relays[i].onT2, relays[i].offT2
-               );
-      configFile.write((uint8_t*)buf, strlen(buf));
-    }
-    for (uint8_t i = 0; i < TGRAPH_COUNT; i++) {
-      sprintf_P(buf, PSTR("<t%d><e>%d</e><h>%d</h></t%d>\n"),
-                i, tGraph[i].x, tGraph[i].y, i
-               );
-      configFile.write((uint8_t*)buf, strlen(buf));
-    }
-    sprintf_P(buf, PSTR("</relays>"));
-    configFile.write((uint8_t*)buf, strlen(buf));
-    configFile.close();
-    return true;
-   }
-   return false;  
-}
-*/
+//  }
+//  return inputsSleep;
+//}
 
