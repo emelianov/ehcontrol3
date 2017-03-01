@@ -49,6 +49,8 @@ String name(DEFAULT_NAME);
 String adminUsername(DEFAULT_ADMIN);
 String adminPassword(DEFAULT_PASS);
 struct features {
+  bool apSwitch;  // AP-mode button default behavior
+  bool apAuto;    // AP-mode if can't connect 
   bool led;
   bool sensors;
   bool lcd;
@@ -59,7 +61,7 @@ struct features {
   bool accel;
   bool bmp;
 };
-features use = {true, false, false, false, false, false, false, false, false};
+features use = {true, true, false, false, false, false, false, false, false, false, false};
 
 struct events {
   uint16_t webStart;
@@ -262,7 +264,7 @@ uint32_t startWiFiAP() {
    server.stop();
    taskDel(handleWeb);
    taskAddWithDelay(startWeb, 2000);
-   return 0;
+   return RUN_NEVER;
 }
 /*
 uint32_t buttonLongPress() {
@@ -326,16 +328,19 @@ uint32_t initMisc() {
   	if (!initAccel()) {
   		use.accel = false;
   	}
-   taskAddWithSemaphore(tapOn, &(event.tap));
-   taskAddWithSemaphore(tapOff, &(event.doubleTap));
+ //  taskAddWithSemaphore(tapOn, &(event.tap));
+//   taskAddWithSemaphore(tapOff, &(event.doubleTap));
   }
 //  if (use.bmp) {
 //    if (!bmpInit()) {
 //      use.bmp = false;
 //   }
 //  }
-  taskAdd(ager);
-  return 0;
+//  taskAdd(ager);
+  if (use.apSwitch) {
+    taskAddWithSemaphore(startWiFiAP, &(item[0]->signal));
+  }
+  return RUN_NEVER;
 }
 
 // Increase age of last update for all sensors and inputs having .gid or connected localy
@@ -375,7 +380,7 @@ void setup(void){
   wdt_enable(0);
   Serial.begin(74880);
   gmode (PIN_ACT, OUTPUT);
-  gmode (D3, INPUT);
+  //gmode (D3, INPUT);
   gmode (PIN_ALERT, OUTPUT);
   IDLE
   NOALERT

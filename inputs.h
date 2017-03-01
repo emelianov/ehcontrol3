@@ -56,14 +56,15 @@ struct inputCfg {
 };
 #define INPUT_MAX 16
 typedef void (*cb)();
-uint16_t* gpsig[INPUT_MAX];
-cb gpintr[INPUT_MAX] = { [](){*gpsig[0]++;},
-                            [](){*gpsig[1]++;},
-                            [](){*gpsig[2]++;},
-                            [](){*gpsig[3]++;},
-                            [](){*gpsig[4]++;},
-                            [](){*gpsig[5]++;}
-};
+uint16_t gpsig[INPUT_MAX];
+uint16_t gppin[INPUT_MAX];
+void intr0() { item[gpsig[0]]->signal++; }
+void intr1() { item[gpsig[1]]->signal++; }
+void intr2() { item[gpsig[2]]->signal++; }
+void intr3() { item[gpsig[3]]->signal++; }
+void intr4() { item[gpsig[4]]->signal++; }
+void intr5() { item[gpsig[5]]->signal++; }
+cb gpintr[INPUT_MAX] = {intr0, intr1, intr2, intr3, intr4, intr5 };
 
 bool readInputs() {
    uint8_t i2cInit = 0;
@@ -73,6 +74,10 @@ bool readInputs() {
     inps[i].index = 0xFFFF;
     inps[i].name = "";
     inps[i].pin = 0;
+  }
+  if (use.apSwitch) {
+    inps[1].gid = 0;
+    inps[1].index = 0;
   }
   inps[0].pin = D0;
   inps[1].pin = D3;
@@ -104,13 +109,16 @@ bool readInputs() {
                     CfgEntry("/sleeptime",  &i2cSleep)
                    };
   if (!cfgParse(CFG_INPUTS, cfg, sizeof(cfg)/sizeof(cfg[0]))) {
-    return false;
+ //   return false;
   }
   for (uint8_t i = 0; i < INPUT_MAX; i++) {
     if (inps[i].index != 0xFFFF) {
-      gmode(inps[i].pin, OUTPUT);
+      if (item[inps[i].index] == NULL) {
+        item[inps[i].index] = new Item();
+      }
+      gmode(inps[i].pin, INPUT);
+      gpsig[i] = inps[i].index;
       attachInterrupt(inps[i].pin, gpintr[i], RISING);
-      gpsig[i] = &item[inps[i].index]->signal;
     }
   }
    if (i2cAddr > 0) {

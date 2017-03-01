@@ -4,20 +4,14 @@
 <base>100</base>
 <init>0</init>
 </i2c>
-<input>
-<pin>0</pin><name>Dummy input</name><gid>0</gid>
-<inverse>0</inverse>
-</input>
-<input>
-<pin>14</pin><name>Eco In</name><gid>1200</gid>
-<inverse>0</inverse>
-</input>
-<input>
-<pin>16</pin><name>Alarm Out</name><gid>1200</gid>
-<inverse>0</inverse>
-</input>
-<analog>
-<pin>A0</pin><name>Light</name><gid>1300</gid>
-<low>500</low><high>1000</high>
-</analog>
+<D0>
+<gid>1040</gid>
+<index>1</index>
+<name>D0</name>
+</D0>
+<D1>
+<gid>1040</gid>
+<index>1</index>
+<name>D0</name>
+</D1>
 </inputs>
