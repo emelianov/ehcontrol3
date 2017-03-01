@@ -1,9 +1,9 @@
 //////////////////////////////////////////////////////
-// EHControl3 2016.5 (c)2016, a.m.emelianov@gmail.com
+// EHControl3 2017.1 (c)2016, a.m.emelianov@gmail.com
 //
 // ESP8266-based Home automation solution
 
-#define REVISION "2016.5"
+#define REVISION "2016.7"
 
 #define CFG_GLOBAL "/global.xml"
 #define CFG_SECURE "/secure.xml"
@@ -30,12 +30,12 @@
 
 #include <ESP8266WiFi.h>
 #include <WiFiClient.h>
-#include <WiFiUdp.h>
+//#include <WiFiUdp.h>
 #include <time.h>
 
 //Syslog settings
-#define UDP_PORT 33666
-IPAddress sysLogServer(192, 168, 30, 30); // SysLog server
+//#define UDP_PORT 33666
+//IPAddress sysLogServer(192, 168, 30, 30); // SysLog server
 //NTP settings
 #define NTP_CHECK_DELAY 300000;
 #define NTP_MAX_COUNT 3
@@ -57,15 +57,36 @@ struct features {
   bool ap;
   bool syslog;
   bool accel;
+  bool bmp;
 };
-struct flags {
-  bool config;
-  bool network;
-  bool ntp;
-  bool webServer;
+features use = {true, false, false, false, false, false, false, false, false};
+
+struct events {
+  uint16_t webStart;
+  uint16_t adxl;
+  uint16_t tap;
+  uint16_t doubleTap;
 };
-features use = { true, false, false, false, false, false, false, false };
-flags done = { false, false, false, false };
+events event = {0, 0, 0, 0};
+
+class Item {
+  public:
+  String    name;
+  float     current;
+  uint16_t  gid;
+  uint16_t  age;
+  uint16_t  signal;
+  Item() {
+    name    = "";
+    current = 0;
+    gid     = 0;
+    age     = 0;
+    signal  = 0;
+  }
+};
+#define MAX_ITEMS 32
+Item* item[MAX_ITEMS] = {NULL};
+
 uint16_t pinOneWire = PIN_ONEWIRE;
 
 #include <Run.h>
@@ -78,29 +99,12 @@ uint16_t pinOneWire = PIN_ONEWIRE;
 #include "relays.h"
 #include "partners.h"
 #include "accel.h"
+//#include "bmp280.h"
 #include "web.h"
 
 String pull[PARTNER_MAX_COUNT];
 String push[PARTNER_MAX_COUNT];
 String allow[PARTNER_MAX_COUNT];
-
-//XML processor settings
-String xmlOpen;
-String xmlTag;
-String xmlData;
-String xmlAttrib;
-TinyXML xml;
-uint8_t buffer[150];
-void XML_callback(uint8_t statusflags, char* tagName, uint16_t tagNameLen, char* data, uint16_t dataLen) {
-  if
-  (statusflags & STATUS_TAG_TEXT) {
-    xmlTag = String(tagName);
-    xmlData = String(data);
-  } else if
-  (statusflags & STATUS_START_TAG) {
-    xmlOpen = String(tagName);
-  }
-}
 
 //Update time from NTP server
 uint32_t initNtp() {
@@ -108,16 +112,61 @@ uint32_t initNtp() {
     configTime(timeZone * 3600, 0, timeServer[0].c_str(), timeServer[1].c_str(), timeServer[2].c_str());
     return NTP_CHECK_DELAY;
   }
-  done.ntp = true;;
+  //done.ntp = true;
   return 0;
 }
 
 //Read global config and start network
+void entryNtps(String s, void* v=NULL) {
+  for (uint8_t i = 0; i < NTP_MAX_COUNT; i++) {
+    if (timeServer[i] == "") {
+      timeServer[i] = s;
+      break;
+    }
+  }
+}
+void entryIp(String s, void* v) {
+  IPAddress* t = (IPAddress*)v;
+  t->fromString(s);
+}
+void entryPull(String s, void* v=NULL) {
+  for (uint8_t i = 0; i < PARTNER_MAX_COUNT; i++) {
+    if (pull[i] == "") {
+      pull[i] = s;
+      break;
+    }
+  }
+}
+void entryPush(String s, void* v=NULL) {
+  for (uint8_t i = 0; i < PARTNER_MAX_COUNT; i++) {
+    if (push[i] == "") {
+      push[i] = s;
+      break;
+    }
+  }
+}
+void entryAllow(String s, void* v=NULL) {
+  for (uint8_t i = 0; i < PARTNER_MAX_COUNT; i++) {
+    if (allow[i] == "") {
+      allow[i] = s;
+      break;
+    }
+  }
+}
+void entryProtect(String s, void* v=NULL) {
+  if (!s.startsWith("/")) {
+    s = "/" + s;
+  }
+  if (s != CFG_SECURE) {
+    server.on(s.c_str(), HTTP_GET, handleProtectedFile);
+  }
+}
+
 uint32_t startWiFi() {
   BUSY
   String ssid("");
   String password("");
-  IPAddress ip(192, 168, 20, 124);             // IP
+  IPAddress ip(0, 0, 0, 0);             // IP
   IPAddress mask(255, 255, 255, 0);            // MASK
   IPAddress gw(192, 168, 20, 2);               // GW
   IPAddress ns(192, 168, 20, 2);               // DNS
@@ -131,150 +180,45 @@ uint32_t startWiFi() {
     push[i] = "";
     allow[i] = "";
   }
-//Read global config options
-  xml.reset();
-  xmlTag = "";
-  xmlOpen = "";
-  File configFile = SPIFFS.open(F(CFG_GLOBAL), "r");
-  if (configFile) {
-   char c;
-   while (configFile.read((uint8_t*)&c, 1) == 1) {
-    xml.processChar(c);
-    if (xmlTag != "") {
-       if 
-      (xmlTag.endsWith("/ntps")) {
-        for (i = 0; i < NTP_MAX_COUNT; i++) {
-          if (timeServer[i] == "") {
-            timeServer[i] = xmlData;
-            break;
-          }
-        }
-       } else if 
-      (xmlTag.endsWith(F("/timezone"))) {
-        timeZone = xmlData.toInt();
-       } else if 
-      (xmlTag.endsWith(F("/ssid"))) {
-        ssid = xmlData;
-       } else if 
-      (xmlTag.endsWith(F("/ssidpass"))) {
-        password = xmlData; 
-       } else if 
-      (xmlTag.endsWith(F("/ip"))) {
-        ipIsOk = ip.fromString(xmlData);
-       } else if 
-      (xmlTag.endsWith(F("/mask"))) {
-        mask.fromString(xmlData);
-       } else if 
-      (xmlTag.endsWith(F("/gw"))) {
-        gw.fromString(xmlData);
-       } else if 
-      (xmlTag.endsWith(F("/dns"))) {
-        ns.fromString(xmlData);
-       } else if
-      (xmlTag.endsWith(F("/syslog"))) {
-        sysLogServer.fromString(xmlData);
-       } else if
-      (xmlTag.endsWith(F("/name"))) {
-        name = xmlData;
-       } else if
-      (xmlTag.endsWith(F("/pin1wire"))) {
-        pinOneWire = xmlData.toInt();
-       } else if
-      (xmlTag.endsWith(F("/partner")) || xmlTag.endsWith(F("/pull"))) {
-      	for (i = 0; i < PARTNER_MAX_COUNT; i++) {
-          if (pull[i] == "") {
-			      pull[i] = xmlData;
-            break;
-          }
-		    }
-       } else if
-      (xmlTag.endsWith(F("/push"))) {
-        for (i = 0; i < PARTNER_MAX_COUNT; i++) {
-          if (push[i] == "") {
-            push[i] = xmlData;
-            break;
-          }
-        }
-       } else if
-      (xmlTag.endsWith(F("/allow"))) {
-        for (i = 0; i < PARTNER_MAX_COUNT; i++) {
-          if (allow[i] == "") {
-            allow[i] = xmlData;
-            break;
-          }
-        }
-       } else if
-      (xmlTag.endsWith(F("/feature/led"))) {
-        use.led = (xmlData.toInt() == 1);
-       } else if
-      (xmlTag.endsWith(F("/feature/sensors"))) {
-        use.sensors = (xmlData.toInt() == 1);
-       } else if
-      (xmlTag.endsWith(F("/feature/lcd"))) {
-        use.lcd = (xmlData.toInt() == 1);
-       } else if
-      (xmlTag.endsWith(F("/feature/heater"))) {
-        use.heater = (xmlData.toInt() == 1);
-       } else if
-      (xmlTag.endsWith(F("/feature/partners"))) {
-        use.partners = (xmlData.toInt() == 1);
-       } else if
-      (xmlTag.endsWith(F("/feature/ap"))) {
-        use.ap = (xmlData.toInt() == 1);
-       } else if
-      (xmlTag.endsWith(F("/feature/accel"))) {
-        use.accel = (xmlData.toInt() == 1);
-       }
-      xmlTag = "";
-      xmlData = "";
-    }
-    yield();
-   }
-   configFile.close();
-  }
+  CfgEntry cfg[] = {CfgEntry(F("/ntps"),      &entryNtps),
+                    CfgEntry(F("/timezone"),  &timeZone),
+                    CfgEntry(F("/ssid"),  &ssid),
+                    CfgEntry(F("/ssidpass"),  &password),
+                    CfgEntry(F("/ip"),  &entryIp, &ip),
+                    CfgEntry(F("/mask"),  &entryIp, &mask),
+                    CfgEntry(F("/gw"),  &entryIp, &gw),
+                    CfgEntry(F("/dns"),  &entryIp, &ns),
+                    CfgEntry(F("/name"),  &name),
+                    CfgEntry(F("/pin1wire"),  &pinOneWire),
+                    CfgEntry(F("/pull"),  &entryPull),
+                    CfgEntry(F("/partner"),  &entryPull),
+                    CfgEntry(F("/push"),  &entryPush),
+                    CfgEntry(F("/allow"),  &entryAllow),
+                    CfgEntry(F("/feature/led"),  &use.led),
+                    CfgEntry(F("/feature/sensors"),  &use.sensors),
+                    CfgEntry(F("/feature/lcd"),  &use.lcd),
+                    CfgEntry(F("/feature/heater"),  &use.heater),
+                    CfgEntry(F("/feature/partners"),  &use.partners),
+                    CfgEntry(F("/feature/ap"),  &use.ap),
+                    CfgEntry(F("/feature/accel"),  &use.accel),
+                    CfgEntry(F("/feature/bmp"),  &use.bmp),
+  };
+  cfgParse(F(CFG_GLOBAL), cfg, sizeof(cfg)/sizeof(cfg[0]));
 //Read secure config options
-  xml.reset();
-  xmlTag = "";
-  xmlOpen = "";
-  configFile = SPIFFS.open(F(CFG_SECURE), "r");
-  if (configFile) {
-   char c;
-   while (configFile.read((uint8_t*)&c, 1) == 1) {
-    xml.processChar(c);
-    if (xmlTag != "") {
-       if 
-      (xmlTag.endsWith(F("/admin"))) {
-        adminUsername = xmlData;
-       } else if 
-      (xmlTag.endsWith(F("/adminpass"))) {
-        adminPassword = xmlData;
-       } else if 
-      (xmlTag.endsWith(F("/ssid"))) {
-        ssid = xmlData;
-       } else if 
-      (xmlTag.endsWith(F("/ssidpass"))) {
-        password = xmlData;
-       } else if 
-      (xmlTag.endsWith(F("/protect"))) {
-        if (!xmlData.startsWith("/")) {
-          xmlData = "/" + xmlData;
-        }
-        if (xmlData != "/secure.xml") {
-          server.on(xmlData.c_str(), HTTP_GET, handleProtectedFile);
-        }
-       }
-      xmlTag = "";
-      xmlData = "";
-    }
-   }
-   configFile.close();
-  }
+  CfgEntry priv[] = {CfgEntry(F("/admin"),      &adminUsername),
+                    CfgEntry(F("/adminpass"),  &adminPassword),
+                    CfgEntry(F("/ssid"),      &ssid),
+                    CfgEntry(F("/ssidpass"),      &password),
+                    CfgEntry(F("/protect"),      &entryProtect),
+  };
+  cfgParse(F(CFG_SECURE), priv, sizeof(cfg)/sizeof(cfg[0]));
+
   taskAdd(initMisc);
   taskAdd(initWeb);
   if (!use.ap && ssid != "" && password != "") { 
    WiFi.mode(WIFI_OFF);
    delay(250);
-   if (ipIsOk) {
+   if (ip != INADDR_NONE) {
     WiFi.config(ip, gw, mask, ns);
    }
    WiFi.mode(WIFI_OFF);
@@ -288,7 +232,7 @@ uint32_t startWiFi() {
    WiFi.mode(WIFI_AP);
    WiFi.begin();
    taskAddWithDelay(startWeb, 2000);
-   taskAdd(buttonLongPressLedOn);
+//   taskAdd(buttonLongPressLedOn);
    IDLE
    return 0;
   }
@@ -320,6 +264,7 @@ uint32_t startWiFiAP() {
    taskAddWithDelay(startWeb, 2000);
    return 0;
 }
+/*
 uint32_t buttonLongPress() {
   ALERT
   taskAddWithDelay(buttonLongPressLedOff, LONGPRESSLEDON);
@@ -343,13 +288,22 @@ void buttonPress() {
 void buttonRelease() {
   taskDel(buttonLongPress);
 }
-
+*/
+bool tapBlinkState = false;
+uint32_t tapOn() {
+    ALERT
+  return RUN_NEVER;
+}
+uint32_t tapOff() {
+    NOALERT
+  return RUN_NEVER;
+}
 uint32_t initMisc() {
   initInputs();
-  defaultInput(0); //Override input at position 0 to NodeMCU button
-  taskAdd(updateInputs);
-  inputEvent(0, ON_ON, buttonPress);
-  inputEvent(0, ON_OFF, buttonRelease);
+//  defaultInput(0); //Override input at position 0 to NodeMCU button
+//  taskAdd(updateInputs);
+//  inputEvent(0, ON_ON, buttonPress);
+//  inputEvent(0, ON_OFF, buttonRelease);
   if (use.sensors) {
     taskAdd(initTSensors);
   } else {
@@ -372,7 +326,14 @@ uint32_t initMisc() {
   	if (!initAccel()) {
   		use.accel = false;
   	}
+   taskAddWithSemaphore(tapOn, &(event.tap));
+   taskAddWithSemaphore(tapOff, &(event.doubleTap));
   }
+//  if (use.bmp) {
+//    if (!bmpInit()) {
+//      use.bmp = false;
+//   }
+//  }
   taskAdd(ager);
   return 0;
 }
@@ -382,7 +343,7 @@ uint32_t ager() {
   uint8_t i;
   DeviceAddress zerro;
   memset(zerro, 0, sizeof(DeviceAddress));
-
+/*
   for (i = 0; i < INPUTS_COUNT; i++) {
     if (inputs[i].gid != 0 || inputs[i].pin != -1) {
       if (inputs[i].age < AGER_MAX) inputs[i].age += AGER_INTERVAL;
@@ -394,6 +355,7 @@ uint32_t ager() {
       if (analogs[i].age < AGER_MAX) analogs[i].age += AGER_INTERVAL;
     }
   }
+*/
   if (use.sensors || use.partners) {
    for (i = 0; i < DEVICE_MAX_COUNT; i++) {
     if (sens[i].gid != 0 || memcmp(sens[i].device, zerro, sizeof(DeviceAddress)) != 0) {
@@ -408,6 +370,7 @@ uint32_t monitorGw() {
   return IP_MONITOR_DELAY;
 }
 */
+
 void setup(void){
   wdt_enable(0);
   Serial.begin(74880);

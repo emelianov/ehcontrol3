@@ -68,7 +68,7 @@ float eqTemp(float t) { //Look t in temperature graph function and return corres
   for (i = 0; i < TGRAPH_COUNT - 1 && t < tGraph[i].x; i++) {
     //Nothing
   }
-  if (i < TGRAPH_COUNT - 1) {
+  if (i > 0) {
     return tGraph[i-1].y + (tGraph[i-1].y - tGraph[i].y) * (tGraph[i-1].x - t)/(tGraph[i].x - tGraph[i-1].x);
   }
   return tGraph[i].y;
@@ -95,7 +95,7 @@ bool saveRelays() {
    File configFile = SPIFFS.open(F(CFG_RELAYS), "w");
    if (configFile) {
     char buf[400];
-    sprintf_P(buf, PSTR("<?xml version = \"1.0\" ?>\n<relays>\n<eco>%d</eco><outside>%d</outside>\n<dteco>%s</dteco>\n<dtday>%s</dtday><dtnight>%s</dtnight>\n<dtboiler>%s</dtboiler>\n"),
+    sprintf_P(buf, PSTR("<?xml version = \"1.0\" ?>\n<relays>\n<eco>%d</eco><outside>%d</outside>\n<dteco>%s</dteco>\n<dtday>%s</dtday><dtnight>%s</dtnight>\n<dtburner>%s</dtburner>\n"),
     ecoMode, outside, String(dTeco).c_str(), String(dTday).c_str(), String(dTnight).c_str(), String(dTburner).c_str());
     configFile.write((uint8_t*)buf, strlen(buf));
     for (uint8_t i = 0; i < RELAY_COUNT; i++) {
@@ -261,6 +261,6 @@ void initRelays() {
  } else {
   use.heater = false;
  }
- inputEvent(ECO_IN, ON_ON,  ecoOn);
- inputEvent(ECO_IN, ON_OFF, ecoOff);
+// inputEvent(ECO_IN, ON_ON,  ecoOn);
+// inputEvent(ECO_IN, ON_OFF, ecoOff);
 }
