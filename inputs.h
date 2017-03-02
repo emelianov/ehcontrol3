@@ -1,5 +1,5 @@
 //////////////////////////////////////////////////////
-// EHControl3 2016.4 (c)2016, a.m.emelianov@gmail.com
+// EHControl3 2017.1 (c)2017, a.m.emelianov@gmail.com
 // Inputs\Outputs definitions, constants and routines
 
 #pragma once
@@ -85,30 +85,30 @@ bool readInputs() {
   inps[3].pin = D6;
   inps[4].pin = D7;
   inps[5].pin = D8;
-  CfgEntry cfg[] = {CfgEntry("/D0/gid",   &inps[0].gid),
-                    CfgEntry("/D0/index",  &inps[0].index),
-                    CfgEntry("/D0/name",  &inps[1].name),
-                    CfgEntry("/D3/gid",   &inps[1].gid),
-                    CfgEntry("/D3/index",  &inps[1].index),
-                    CfgEntry("/D3/name",  &inps[1].name),
-                    CfgEntry("/D5/gid",   &inps[2].gid),
-                    CfgEntry("/D5/index",  &inps[2].index),
-                    CfgEntry("/D5/name",  &inps[2].name),
-                    CfgEntry("/D6/gid",   &inps[3].gid),
-                    CfgEntry("/D6/index",  &inps[3].index),
-                    CfgEntry("/D6/name",  &inps[3].name),
-                    CfgEntry("/D7/gid",   &inps[4].gid),
-                    CfgEntry("/D7/index",  &inps[4].index),
-                    CfgEntry("/D7/name",  &inps[4].name),
-                    CfgEntry("/D8/gid",   &inps[5].gid),
-                    CfgEntry("/D8/index",  &inps[5].index),
-                    CfgEntry("/D8/name",  &inps[5].name),
-                    CfgEntry("/i2c/addr",  &i2cAddr),
-                    CfgEntry("/i2c/init",  &i2cInit),
-                    CfgEntry("/i2c/addr",  &i2cBase),
-                    CfgEntry("/sleeptime",  &i2cSleep)
+  CfgEntry cfg[] = {CfgEntry(F("/D0/gid"),   &inps[0].gid),
+                    CfgEntry(F("/D0/index"),  &inps[0].index),
+                    CfgEntry(F("/D0/name"),  &inps[1].name),
+                    CfgEntry(F("/D3/gid"),   &inps[1].gid),
+                    CfgEntry(F("/D3/index"),  &inps[1].index),
+                    CfgEntry(F("/D3/name"),  &inps[1].name),
+                    CfgEntry(F("/D5/gid"),   &inps[2].gid),
+                    CfgEntry(F("/D5/index"),  &inps[2].index),
+                    CfgEntry(F("/D5/name"),  &inps[2].name),
+                    CfgEntry(F("/D6/gid"),   &inps[3].gid),
+                    CfgEntry(F("/D6/index"),  &inps[3].index),
+                    CfgEntry(F("/D6/name"),  &inps[3].name),
+                    CfgEntry(F("/D7/gid"),   &inps[4].gid),
+                    CfgEntry(F("/D7/index"),  &inps[4].index),
+                    CfgEntry(F("/D7/name"),  &inps[4].name),
+                    CfgEntry(F("/D8/gid"),   &inps[5].gid),
+                    CfgEntry(F("/D8/index"),  &inps[5].index),
+                    CfgEntry(F("/D8/name"),  &inps[5].name),
+                    CfgEntry(F("/i2c/addr"),  &i2cAddr),
+                    CfgEntry(F("/i2c/init"),  &i2cInit),
+                    CfgEntry(F("/i2c/addr"),  &i2cBase),
+                    CfgEntry(F("/sleeptime"),  &i2cSleep)
                    };
-  if (!cfgParse(CFG_INPUTS, cfg, sizeof(cfg)/sizeof(cfg[0]))) {
+  if (!cfgParse(F(CFG_INPUTS), cfg, sizeof(cfg)/sizeof(cfg[0]))) {
  //   return false;
   }
   for (uint8_t i = 0; i < INPUT_MAX; i++) {

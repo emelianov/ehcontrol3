@@ -1,6 +1,6 @@
 //////////////////////////////////////////////////////
 // EHControl3 2017.1 (c)2016, a.m.emelianov@gmail.com
-// Config pricessor helper
+// Config processor helper
 
 #pragma once
 #include <FS.h>

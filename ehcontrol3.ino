@@ -3,7 +3,7 @@
 //
 // ESP8266-based Home automation solution
 
-#define REVISION "2016.7"
+#define REVISION "2016.8"
 
 #define CFG_GLOBAL "/global.xml"
 #define CFG_SECURE "/secure.xml"
@@ -101,7 +101,7 @@ uint16_t pinOneWire = PIN_ONEWIRE;
 #include "relays.h"
 #include "partners.h"
 #include "accel.h"
-//#include "bmp280.h"
+#include "bmp280.h"
 #include "web.h"
 
 String pull[PARTNER_MAX_COUNT];
@@ -228,7 +228,7 @@ uint32_t startWiFi() {
    WiFi.mode(WIFI_STA);
    WiFi.begin(ssid.c_str(), password.c_str());
    taskAdd(waitWiFi);
-   return 0;
+   return RUN_DELETE;
   } else {
    use.ap = true;
    WiFi.mode(WIFI_AP);
@@ -236,7 +236,7 @@ uint32_t startWiFi() {
    taskAddWithDelay(startWeb, 2000);
 //   taskAdd(buttonLongPressLedOn);
    IDLE
-   return 0;
+   return RUN_DELETE;
   }
 }
 //Wait for wireless connection and start network-depended services as connection established
@@ -264,7 +264,7 @@ uint32_t startWiFiAP() {
    server.stop();
    taskDel(handleWeb);
    taskAddWithDelay(startWeb, 2000);
-   return RUN_NEVER;
+   return RUN_DELETE;
 }
 /*
 uint32_t buttonLongPress() {
@@ -331,16 +331,16 @@ uint32_t initMisc() {
  //  taskAddWithSemaphore(tapOn, &(event.tap));
 //   taskAddWithSemaphore(tapOff, &(event.doubleTap));
   }
-//  if (use.bmp) {
-//    if (!bmpInit()) {
-//      use.bmp = false;
-//   }
-//  }
+  if (use.bmp) {
+    if (!bmpInit()) {
+      use.bmp = false;
+   }
+  }
 //  taskAdd(ager);
   if (use.apSwitch) {
     taskAddWithSemaphore(startWiFiAP, &(item[0]->signal));
   }
-  return RUN_NEVER;
+  return RUN_DELETE;
 }
 
 // Increase age of last update for all sensors and inputs having .gid or connected localy
