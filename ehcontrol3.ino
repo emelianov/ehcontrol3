@@ -20,51 +20,51 @@
 #define SYSTEM_PIN    0   //0 Config mode pin
 #define PIN_ACT       D4  //Net LED
 #define PIN_ALERT     D0  //16
-#define BUSY          if (use.led) gwrite(PIN_ACT, 0);
-#define IDLE          if (use.led) gwrite(PIN_ACT, 1);
-#define ALERT         gwrite(PIN_ALERT, LOW);
-#define NOALERT       gwrite(PIN_ALERT, HIGH);
+#define BUSY          if (use.led) digitalWrite(PIN_ACT, LOW);
+#define IDLE          if (use.led) digitalWrite(PIN_ACT, HIGH);
+#define ALERT         digitalWrite(PIN_ALERT, LOW);
+#define NOALERT       digitalWrite(PIN_ALERT, HIGH);
 #define DEFAULT_NAME  "New"
 #define DEFAULT_ADMIN "admin"
 #define DEFAULT_PASS  "password3"
 
 #include <ESP8266WiFi.h>
 #include <WiFiClient.h>
-//#include <WiFiUdp.h>
 #include <time.h>
 
-//Syslog settings
-//#define UDP_PORT 33666
-//IPAddress sysLogServer(192, 168, 30, 30); // SysLog server
 //NTP settings
 #define NTP_CHECK_DELAY 300000;
 #define NTP_MAX_COUNT 3
-//WiFiUDP udp;
 String timeServer[NTP_MAX_COUNT];         // NTP servers
 int8_t timeZone = 0;
+
 //Controller settings
 #define SSID_MAX_LENGTH 16
 #define PASS_MAX_LENGTH 24
 String name(DEFAULT_NAME);
 String adminUsername(DEFAULT_ADMIN);
 String adminPassword(DEFAULT_PASS);
+
 struct features {
+  bool led;       // Activity LED
   bool apSwitch;  // AP-mode button default behavior
   bool apAuto;    // AP-mode if can't connect 
-  bool led;
-  bool sensors;
-  bool lcd;
-  bool heater;
-  bool partners;
-  bool ap;
-  bool syslog;
-  bool accel;
-  bool bmp;
+  bool apDefault;
+  bool sensors;   // DS18S20 support
+  bool lcd;       // LCD1620 support
+  bool heater;    // 2 Zones heating controller support
+  bool partners;  // Inter-ESP data exchange support
+  bool ap;        // Force AP mode
+  bool accel;     // ADXL345 support
+  bool bmp;       // BMP280 support
 };
-features use = {true, true, false, false, false, false, false, false, false, false, false};
+features use = {true, true, true, false, false, false, false, false, false, false, false};
 
 struct events {
-  uint16_t webStart;
+  uint16_t webReady;
+  uint16_t ntpReady;
+  uint16_t startReady;
+  uint16_t wifiReady;
   uint16_t adxl;
   uint16_t tap;
   uint16_t doubleTap;
@@ -107,6 +107,8 @@ uint16_t pinOneWire = PIN_ONEWIRE;
 String pull[PARTNER_MAX_COUNT];
 String push[PARTNER_MAX_COUNT];
 String allow[PARTNER_MAX_COUNT];
+#define APSCAN_MAX 16
+String aps[APSCAN_MAX];
 
 //Update time from NTP server
 uint32_t initNtp() {
@@ -114,8 +116,8 @@ uint32_t initNtp() {
     configTime(timeZone * 3600, 0, timeServer[0].c_str(), timeServer[1].c_str(), timeServer[2].c_str());
     return NTP_CHECK_DELAY;
   }
-  //done.ntp = true;
-  return 0;
+  event.ntpReady++;
+  return RUN_DELETE;
 }
 
 //Read global config and start network
@@ -164,15 +166,14 @@ void entryProtect(String s, void* v=NULL) {
   }
 }
 
-uint32_t startWiFi() {
+uint32_t start() {
   BUSY
   String ssid("");
   String password("");
-  IPAddress ip(0, 0, 0, 0);             // IP
-  IPAddress mask(255, 255, 255, 0);            // MASK
-  IPAddress gw(192, 168, 20, 2);               // GW
-  IPAddress ns(192, 168, 20, 2);               // DNS
-  bool ipIsOk = false;
+  IPAddress ip(0, 0, 0, 0);
+  IPAddress mask(255, 255, 255, 0);
+  IPAddress gw(192, 168, 20, 2);
+  IPAddress ns(192, 168, 20, 2);
   uint8_t i;
   for (i = 0; i < NTP_MAX_COUNT; i++) {
     timeServer[i] = "";
@@ -215,82 +216,116 @@ uint32_t startWiFi() {
   };
   cfgParse(F(CFG_SECURE), priv, sizeof(cfg)/sizeof(cfg[0]));
 
-  taskAdd(initMisc);
-  taskAdd(initWeb);
+  //taskAdd(initMisc);
+  //taskAdd(initWeb);
   if (!use.ap && ssid != "" && password != "") { 
-   WiFi.mode(WIFI_OFF);
-   delay(250);
    if (ip != INADDR_NONE) {
     WiFi.config(ip, gw, mask, ns);
    }
-   WiFi.mode(WIFI_OFF);
-   delay(250);
    WiFi.mode(WIFI_STA);
    WiFi.begin(ssid.c_str(), password.c_str());
    taskAdd(waitWiFi);
-   return RUN_DELETE;
   } else {
    use.ap = true;
    WiFi.mode(WIFI_AP);
-   WiFi.begin();
-   taskAddWithDelay(startWeb, 2000);
-//   taskAdd(buttonLongPressLedOn);
+   if (ssid != "" && password != "") {
+    WiFi.softAP(ssid.c_str(), password.c_str());
+   } else {
+    //WiFi.begin();
+   }
+   //taskAddWithDelay(startWeb, 2000);
+   taskAdd(buttonLongPressLedOn);
+   event.wifiReady++;
    IDLE
-   return RUN_DELETE;
   }
+  event.startReady++;
+  return RUN_DELETE;
 }
 //Wait for wireless connection and start network-depended services as connection established
 uint32_t waitWiFi() {
      if(WiFi.status() == WL_CONNECTED){
-       taskAdd(initNtp);
-       taskAddWithDelay(startWeb, 2000);
+       //taskAdd(initNtp);
+       //taskAddWithDelay(startWeb, 2000);
+       event.wifiReady++;
        IDLE
-       return 0;
+       return RUN_DELETE;
      }
      return WIFI_RETRY_DELAY;  
 }
+
+//Start Open Access Point mode on button long press
+uint32_t startWiFiAP() {
+   if (!use.apDefault) {
+    use.ap = true;
+    taskDel(waitWiFi);
+    WiFi.disconnect();
+    adminUsername = F(DEFAULT_ADMIN);
+    adminPassword = F(DEFAULT_PASS);
+    server.stop();
+    taskDel(handleWeb);
+    //WiFi.softAP(name.c_str());
+    WiFi.mode(WIFI_AP);
+    //WiFi.begin();
+    startWeb();
+    //taskAddWithDelay(startWeb, 2000);
+    IDLE
+    use.apDefault = true;
+   }
+   return RUN_DELETE;
+}
+uint32_t scanWiFi() {
+  WiFi.mode(WIFI_STA); 
+  WiFi.disconnect(); 
+  int16_t n = WiFi.scanNetworks(); 
+  for (uint16_t i = 0; i < n && i < APSCAN_MAX; ++i) { 
+       // Print SSID and RSSI for each network found 
+       Serial.print(i + 1); 
+       Serial.print(": "); 
+       Serial.print(WiFi.SSID(i)); 
+       Serial.print(" ("); 
+       Serial.print(WiFi.RSSI(i)); 
+       Serial.print(")"); 
+       Serial.println((WiFi.encryptionType(i) == ENC_TYPE_NONE)?" ":"*"); 
+       delay(10); 
+  }
+  if (use.apDefault) {
+    startWiFiAP();
+    return RUN_DELETE;
+  }
+  if (use.ap) {
+    
+  }  
+}
+
 
 #define LONGPRESS       2000
 #define LONGPRESSLEDON  3000
 #define LONGPRESSLEDOFF 1000
 
-//Start Open Access Point mode on button long press
-uint32_t startWiFiAP() {
-   use.ap = true;
-   adminUsername = F(DEFAULT_ADMIN);
-   adminPassword = F(DEFAULT_PASS);
-   WiFi.mode(WIFI_AP);
-   WiFi.begin();
-   server.stop();
-   taskDel(handleWeb);
-   taskAddWithDelay(startWeb, 2000);
-   return RUN_DELETE;
-}
-/*
 uint32_t buttonLongPress() {
   ALERT
   taskAddWithDelay(buttonLongPressLedOff, LONGPRESSLEDON);
   startWiFiAP();
-  return 0;
+  return RUN_DELETE;
 }
 uint32_t buttonLongPressLedOn() {
   ALERT
   taskAddWithDelay(buttonLongPressLedOff, LONGPRESSLEDON);
-  return 0;
+  return RUN_DELETE;
 }
 uint32_t buttonLongPressLedOff() {
   NOALERT
   taskAddWithDelay(buttonLongPressLedOn, LONGPRESSLEDOFF);
-  return 0;
+  return RUN_DELETE;
 }
-void buttonPress() {
+uint32_t buttonAction() {
   taskDel(buttonLongPress);
-  taskAddWithDelay(buttonLongPress, LONGPRESS);
+  if (item[0]->current == LOW) {
+    taskAddWithDelay(buttonLongPress, LONGPRESS);
+  }
+  return RUN_NEVER;
 }
-void buttonRelease() {
-  taskDel(buttonLongPress);
-}
-*/
+
 bool tapBlinkState = false;
 uint32_t tapOn() {
     ALERT
@@ -302,16 +337,11 @@ uint32_t tapOff() {
 }
 uint32_t initMisc() {
   initInputs();
-//  defaultInput(0); //Override input at position 0 to NodeMCU button
-//  taskAdd(updateInputs);
-//  inputEvent(0, ON_ON, buttonPress);
-//  inputEvent(0, ON_OFF, buttonRelease);
   if (use.sensors) {
     taskAdd(initTSensors);
   } else {
     readSensors();
   }
-  //taskAdd(readTSensors);
   if (use.heater) {
     initRelays();
   }
@@ -338,7 +368,7 @@ uint32_t initMisc() {
   }
 //  taskAdd(ager);
   if (use.apSwitch) {
-    taskAddWithSemaphore(startWiFiAP, &(item[0]->signal));
+    taskAddWithSemaphore(buttonAction, &(item[0]->signal));
   }
   return RUN_DELETE;
 }
@@ -379,17 +409,19 @@ uint32_t monitorGw() {
 void setup(void){
   wdt_enable(0);
   Serial.begin(74880);
-  gmode (PIN_ACT, OUTPUT);
+  pinMode (PIN_ACT, OUTPUT);
   //gmode (D3, INPUT);
-  gmode (PIN_ALERT, OUTPUT);
+  pinMode (PIN_ALERT, OUTPUT);
   IDLE
   NOALERT
+  WiFi.mode(WIFI_OFF);
   SPIFFS.begin();
   xml.init((uint8_t *)buffer, sizeof(buffer), &XML_callback);
-  taskAdd(startWiFi);
-  //taskAdd(initMisc);
-  //taskAdd(initWeb);
-  //taskAdd(ager);
+  taskAdd(start);
+  taskAddWithSemaphore(initMisc, &event.startReady);
+  taskAddWithSemaphore(initWeb, &event.startReady);
+  taskAddWithSemaphore(initNtp, &event.wifiReady);
+  //taskAddWithSemaphore(startWeb, &event.wifiReady);
 } 
 void loop(void){
   taskExec();

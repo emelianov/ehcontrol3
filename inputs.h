@@ -8,16 +8,11 @@
 
 #define I2C_OFFSET 100
 #define CFG_INPUTS "/inputs.xml"
-//Min & Max times of signal is changed to detect as click event
-#define CLICK_TIME_MIN 100
-#define CLICK_TIME_MAX 150
-//Max time to detect signal change as long click event 
-#define CLICK_LONG_TIME_MAX 500
 #define INPUTS_SLEEP 100
 
 PCF857x * i2cGpio = NULL;
 uint8_t i2cAddr = 0;
-uint8_t i2cBase = 0;
+uint8_t i2cBase = I2C_OFFSET;
 uint32_t i2cSleep = INPUTS_SLEEP;
 uint8_t gread(uint8_t pin) {
   if (pin >= I2C_OFFSET) {
@@ -58,12 +53,13 @@ struct inputCfg {
 typedef void (*cb)();
 uint16_t gpsig[INPUT_MAX];
 uint16_t gppin[INPUT_MAX];
-void intr0() { item[gpsig[0]]->signal++; }
-void intr1() { item[gpsig[1]]->signal++; }
-void intr2() { item[gpsig[2]]->signal++; }
-void intr3() { item[gpsig[3]]->signal++; }
-void intr4() { item[gpsig[4]]->signal++; }
-void intr5() { item[gpsig[5]]->signal++; }
+void ICACHE_RAM_ATTR intr(uint8_t i) { item[gpsig[i]]->signal++; item[gpsig[i]]->current = digitalRead(gppin[i]); }
+void ICACHE_RAM_ATTR intr0() { intr(0); }
+void ICACHE_RAM_ATTR intr1() { intr(1); }
+void ICACHE_RAM_ATTR intr2() { intr(2); }
+void ICACHE_RAM_ATTR intr3() { intr(3); }
+void ICACHE_RAM_ATTR intr4() { intr(4); }
+void ICACHE_RAM_ATTR intr5() { intr(5); }
 cb gpintr[INPUT_MAX] = {intr0, intr1, intr2, intr3, intr4, intr5 };
 
 bool readInputs() {
@@ -86,27 +82,27 @@ bool readInputs() {
   inps[4].pin = D7;
   inps[5].pin = D8;
   CfgEntry cfg[] = {CfgEntry(F("/D0/gid"),   &inps[0].gid),
-                    CfgEntry(F("/D0/index"),  &inps[0].index),
-                    CfgEntry(F("/D0/name"),  &inps[1].name),
+                    CfgEntry(F("/D0/index"), &inps[0].index),
+                    CfgEntry(F("/D0/name"),  &inps[0].name),
                     CfgEntry(F("/D3/gid"),   &inps[1].gid),
-                    CfgEntry(F("/D3/index"),  &inps[1].index),
+                    CfgEntry(F("/D3/index"), &inps[1].index),
                     CfgEntry(F("/D3/name"),  &inps[1].name),
                     CfgEntry(F("/D5/gid"),   &inps[2].gid),
-                    CfgEntry(F("/D5/index"),  &inps[2].index),
+                    CfgEntry(F("/D5/index"), &inps[2].index),
                     CfgEntry(F("/D5/name"),  &inps[2].name),
                     CfgEntry(F("/D6/gid"),   &inps[3].gid),
-                    CfgEntry(F("/D6/index"),  &inps[3].index),
+                    CfgEntry(F("/D6/index"), &inps[3].index),
                     CfgEntry(F("/D6/name"),  &inps[3].name),
                     CfgEntry(F("/D7/gid"),   &inps[4].gid),
-                    CfgEntry(F("/D7/index"),  &inps[4].index),
+                    CfgEntry(F("/D7/index"), &inps[4].index),
                     CfgEntry(F("/D7/name"),  &inps[4].name),
                     CfgEntry(F("/D8/gid"),   &inps[5].gid),
-                    CfgEntry(F("/D8/index"),  &inps[5].index),
+                    CfgEntry(F("/D8/index"), &inps[5].index),
                     CfgEntry(F("/D8/name"),  &inps[5].name),
-                    CfgEntry(F("/i2c/addr"),  &i2cAddr),
-                    CfgEntry(F("/i2c/init"),  &i2cInit),
-                    CfgEntry(F("/i2c/addr"),  &i2cBase),
-                    CfgEntry(F("/sleeptime"),  &i2cSleep)
+                    CfgEntry(F("/i2c/addr"), &i2cAddr),
+                    CfgEntry(F("/i2c/init"), &i2cInit),
+                    CfgEntry(F("/i2c/addr"), &i2cBase),
+                    CfgEntry(F("/sleeptime"),&i2cSleep)
                    };
   if (!cfgParse(F(CFG_INPUTS), cfg, sizeof(cfg)/sizeof(cfg[0]))) {
  //   return false;
@@ -116,9 +112,10 @@ bool readInputs() {
       if (item[inps[i].index] == NULL) {
         item[inps[i].index] = new Item();
       }
-      gmode(inps[i].pin, INPUT);
+      pinMode(inps[i].pin, INPUT);
       gpsig[i] = inps[i].index;
-      attachInterrupt(inps[i].pin, gpintr[i], RISING);
+      gppin[i] = inps[i].pin;
+      attachInterrupt(inps[i].pin, gpintr[i], CHANGE);
     }
   }
    if (i2cAddr > 0) {

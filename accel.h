@@ -9,11 +9,11 @@
 
 #define CFG_ADXL "/accel.xml"
 #define ADXL_INTR   D6
-ADXL345 * adxl;
+ADXL345* adxl;
 uint16_t adxlIntrPin = ADXL_INTR;
 bool adxlTapEnable = false;
 bool adxlDoubleTapEnable = false;
-void adxlIntr() {
+void ICACHE_RAM_ATTR adxlIntr() {
   event.adxl++;
 }
 uint32_t adxlTap() {
@@ -32,6 +32,7 @@ bool initAccel() {
                     CfgEntry(F("/doubletap"),  &adxlDoubleTapEnable)
                    };
   cfgParse(F(CFG_ADXL), cfg, sizeof(cfg)/sizeof(cfg[0]));
+  pinMode(adxlIntrPin, INPUT);
   attachInterrupt(adxlIntrPin, adxlIntr, RISING);
   Wire.begin();
   adxl = new ADXL345();

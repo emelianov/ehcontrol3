@@ -251,9 +251,8 @@ void handlePrivate() {
 <heater>%d</heater>\
 <partners>%d</partners>\
 <ap>%d</ap>\
-<syslog>%d</syslog>\
 </use>\
-</private></ctrl>"), ESP.getFreeHeap(), WiFi.RSSI(), REVISION, use.led, use.sensors, use.lcd, use.heater, use.partners, use.ap, use.syslog);
+</private></ctrl>"), ESP.getFreeHeap(), WiFi.RSSI(), REVISION, use.led, use.sensors, use.lcd, use.heater, use.partners, use.ap);
   server.sendHeader("Connection", "close");
   server.sendHeader("Cache-Control", "no-store, must-revalidate");
   server.send(200, "text/xml", data);
@@ -426,15 +425,20 @@ void handleReboot() {
     IDLE
     return;
   }
-  //WiFiUDP::stopAll();
   if (use.heater) {
     for (uint8_t i = 0; i < RELAY_COUNT; i++) {
       if (relays[i].pin != -1) { _off(i);}
     }
   }
+  for (uint8_t i = 0; i < 16; i++) {
+    detachInterrupt(i);
+  }
   server.sendHeader("Refresh", "15; url=/");
   server.send_P(200, PSTR("text/plain"), PSTR("OK"));
-	ESP.restart();
+  WiFi.mode(WIFI_OFF);
+  IDLE
+  NOALERT
+	ESP.reset();
 }
 void handleFormat() {
   if(!server.authenticate(adminUsername.c_str(), adminPassword.c_str())) {
@@ -587,6 +591,16 @@ void handleWeather() {
   output += F(", \"humidity\": 38 }");
   server.send(200, "text/html; charset=utf-8", output);
 }
+uint32_t handleWeb() {
+  server.handleClient();
+  return 100;
+}
+uint32_t startWeb() {
+  server.begin();
+  taskAdd(handleWeb);
+  event.webReady++;
+  return RUN_DELETE;
+}
 uint32_t initWeb() {
 //First callback is called after the request has ended with all parsed arguments
 //Second callback handles file uploads at that location
@@ -615,14 +629,6 @@ uint32_t initWeb() {
   server.on("/secure.xml", HTTP_GET, handleProtectedFile);        //Load restricted secure.xml from FS
   server.on("/weather", HTTP_GET, handleWeather);                 //For testing
   server.on("/items", HTTP_GET, handleItems);                     //Items array
-  return 0;
-}
-uint32_t handleWeb() {
-  server.handleClient();
-  return 100;
-}
-uint32_t startWeb() {
-  server.begin();
-  taskAdd(handleWeb);
-  return 0;
+  taskAddWithSemaphore(startWeb, &event.wifiReady);
+  return RUN_DELETE;
 }
